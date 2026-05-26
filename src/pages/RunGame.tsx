@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGameStore } from '@/stores/gameStore';
+import { useGameStore, KnowledgeCard } from '@/stores/gameStore';
 import { ArrowLeft, Pause, Play, RotateCcw, BookOpen, CheckCircle } from 'lucide-react';
 import { knowledgeCards } from '@/data/questions';
 
@@ -13,6 +13,15 @@ interface GameObject {
   type: 'fruit' | 'obstacle';
   emoji: string;
   category?: 'bacteria' | 'junk';
+}
+
+interface FloatingText {
+  id: number;
+  x: number;
+  y: number;
+  text: string;
+  life: number;
+  vy: number;
 }
 
 interface Particle {
@@ -39,24 +48,28 @@ export default function RunGame() {
   const [isJumping, setIsJumping] = useState(false);
   const [objects, setObjects] = useState<GameObject[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
+  const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [speed, setSpeed] = useState(8);
-  const [reviveKnowledge, setReviveKnowledge] = useState<any>(null);
+  const [reviveKnowledge, setReviveKnowledge] = useState<Omit<KnowledgeCard, 'unlockedAt'> | null>(null);
   const [isKnowledgeLearned, setIsKnowledgeLearned] = useState(false);
   
   const objectIdRef = useRef(0);
+  const floatingTextIdRef = useRef(0);
   const lastSpawnRef = useRef(0);
   const laneWidth = 120;
   const canvasHeight = 800;
   const canvasWidth = 400;
 
   const fruits = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉', '🍍', '🥭'];
-  const obstacles = {
-    bacteria: ['🦠', '🤢', '💀', '☠️', '🦟'],
-    junk: ['🍔', '🍕', '🌭', '🍟', '🍗', '🍺', '🍻', '🚬', '💊']
-  };
+  const junkFood = ['🍺', '🍻', '🚬', '🌶️', '🍗', '🍟', '🍔', '🍕'];
 
-  const getRandomKnowledge = () => {
-    return knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
+  const getRandomKnowledge = (): Omit<KnowledgeCard, 'unlockedAt'> => {
+    const card = knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
+    return {
+      id: card.id,
+      title: card.title,
+      content: card.content
+    };
   };
 
   const spawnObject = useCallback(() => {
@@ -68,11 +81,9 @@ export default function RunGame() {
       emoji = fruits[Math.floor(Math.random() * fruits.length)];
       type = 'fruit';
     } else {
-      const obstacleType = Math.random() < 0.5 ? 'bacteria' : 'junk';
-      const obstacleList = obstacles[obstacleType];
-      emoji = obstacleList[Math.floor(Math.random() * obstacleList.length)];
+      emoji = junkFood[Math.floor(Math.random() * junkFood.length)];
       type = 'obstacle';
-      category = obstacleType;
+      category = 'junk';
     }
 
     return {
@@ -100,6 +111,17 @@ export default function RunGame() {
       });
     }
     return newParticles;
+  };
+
+  const createFloatingText = (x: number, y: number, text: string) => {
+    return {
+      id: floatingTextIdRef.current++,
+      x,
+      y,
+      text,
+      life: 1,
+      vy: -2
+    };
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -187,18 +209,20 @@ export default function RunGame() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let lastTime = 0;
     let bgOffset = 0;
     let bgOffset2 = 0;
+    let bgOffset3 = 0;
+    let bgOffset4 = 0;
+    let bgOffset5 = 0;
 
     const gameLoop = (timestamp: number) => {
       if (gameState !== 'playing') return;
 
-      const deltaTime = timestamp - lastTime;
-      lastTime = timestamp;
-
       bgOffset = (bgOffset + speed * 0.5) % 200;
       bgOffset2 = (bgOffset2 + speed * 0.3) % 150;
+      bgOffset3 = (bgOffset3 + speed * 0.2) % 300;
+      bgOffset4 = (bgOffset4 + speed * 0.4) % 180;
+      bgOffset5 = (bgOffset5 + speed * 0.6) % 120;
 
       // 画地铁隧道背景
       const tunnelGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
@@ -207,6 +231,120 @@ export default function RunGame() {
       tunnelGradient.addColorStop(1, '#0f3460');
       ctx.fillStyle = tunnelGradient;
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // 画星星
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 30; i++) {
+        const seed = i * 137.508;
+        const x = (seed * 3) % canvasWidth;
+        const y = (seed * 2) % (canvasHeight * 0.4);
+        const size = 1 + (seed % 2);
+        const twinkle = Math.sin(timestamp * 0.005 + i) * 0.5 + 0.5;
+        ctx.globalAlpha = 0.3 + twinkle * 0.7;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // 画月亮
+      ctx.fillStyle = '#f5f6fa';
+      ctx.beginPath();
+      ctx.arc(320, 80, 40, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1a1a2e';
+      ctx.beginPath();
+      ctx.arc(335, 75, 35, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 画飘动的云朵
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      for (let i = 0; i < 5; i++) {
+        const cloudX = ((i * 150 + bgOffset2 * 2 + timestamp * 0.02) % (canvasWidth + 200)) - 100;
+        const cloudY = 100 + i * 40;
+        ctx.beginPath();
+        ctx.arc(cloudX, cloudY, 30, 0, Math.PI * 2);
+        ctx.arc(cloudX + 25, cloudY - 10, 25, 0, Math.PI * 2);
+        ctx.arc(cloudX + 50, cloudY, 28, 0, Math.PI * 2);
+        ctx.arc(cloudX + 25, cloudY + 10, 22, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 画飞鸟
+      ctx.font = '20px Arial';
+      for (let i = 0; i < 4; i++) {
+        const birdX = ((i * 120 + bgOffset3 * 1.5 + timestamp * 0.05) % (canvasWidth + 100)) - 50;
+        const birdY = 150 + Math.sin(i * 2) * 30 + Math.sin(timestamp * 0.003 + i) * 10;
+        const wingOffset = Math.sin(timestamp * 0.02 + i) * 5;
+        ctx.fillText('𓅰', birdX, birdY + wingOffset);
+        ctx.fillText('𓅰', birdX + 40, birdY - wingOffset);
+      }
+
+      // 画远处城市建筑剪影
+      ctx.fillStyle = '#1e3a5f';
+      for (let i = -2; i < 15; i++) {
+        const x = (i * 60 + bgOffset3) % (canvasWidth + 120) - 60;
+        const height = 100 + Math.sin(i * 1.5) * 50;
+        ctx.fillRect(x, canvasHeight - 200 - height, 40, height);
+      }
+
+      // 画中距离建筑
+      ctx.fillStyle = '#253b5c';
+      for (let i = -2; i < 12; i++) {
+        const x = (i * 80 + bgOffset4) % (canvasWidth + 160) - 80;
+        const height = 80 + Math.cos(i * 2) * 40;
+        ctx.fillRect(x, canvasHeight - 200 - height, 60, height);
+        // 窗户
+        ctx.fillStyle = '#f1c40f';
+        for (let wy = canvasHeight - 200 - height + 10; wy < canvasHeight - 210; wy += 20) {
+          for (let wx = x + 10; wx < x + 50; wx += 15) {
+            if (Math.random() > 0.3) {
+              ctx.fillRect(wx, wy, 8, 12);
+            }
+          }
+        }
+        ctx.fillStyle = '#253b5c';
+      }
+
+      // 画路灯
+      for (let i = -2; i < 8; i++) {
+        const y = (i * 150 + bgOffset5) % (canvasHeight + 150) - 75;
+        // 路灯杆
+        ctx.fillStyle = '#7f8c8d';
+        ctx.fillRect(25, y, 4, 100);
+        // 路灯灯头
+        ctx.fillStyle = '#f39c12';
+        ctx.beginPath();
+        ctx.arc(27, y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        // 灯光效果
+        ctx.fillStyle = 'rgba(243, 156, 18, 0.1)';
+        ctx.beginPath();
+        ctx.arc(27, y, 30, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 右侧路灯
+        ctx.fillStyle = '#7f8c8d';
+        ctx.fillRect(canvasWidth - 29, y, 4, 100);
+        ctx.fillStyle = '#f39c12';
+        ctx.beginPath();
+        ctx.arc(canvasWidth - 27, y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(243, 156, 18, 0.1)';
+        ctx.beginPath();
+        ctx.arc(canvasWidth - 27, y, 30, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 画树木装饰
+      for (let i = -2; i < 10; i++) {
+        const y = (i * 200 + bgOffset4 * 0.7) % (canvasHeight + 200) - 100;
+        // 左侧树木
+        ctx.font = '40px Arial';
+        ctx.fillText('🌳', 40, y);
+        // 右侧树木
+        ctx.fillText('🌳', canvasWidth - 60, y);
+      }
 
       // 画两侧墙壁
       ctx.fillStyle = '#2d3436';
@@ -242,6 +380,48 @@ export default function RunGame() {
       ctx.fillStyle = floorGradient;
       ctx.fillRect(0, canvasHeight - 200, canvasWidth, 200);
 
+      // 画地面纹理 - 条纹
+      ctx.fillStyle = '#4a5568';
+      for (let i = -2; i < 20; i++) {
+        const y = canvasHeight - 200 + (i * 40 + bgOffset * 0.8) % 200;
+        ctx.fillRect(0, y, canvasWidth, 5);
+      }
+
+      // 画地面纹理 - 警示条纹
+      ctx.fillStyle = '#e67e22';
+      for (let i = -2; i < 8; i++) {
+        const y = canvasHeight - 30 + (i * 50 + bgOffset) % 200;
+        for (let x = -10; x < canvasWidth; x += 40) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + 20, y);
+          ctx.lineTo(x + 15, y + 10);
+          ctx.lineTo(x - 5, y + 10);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      // 画地面纹理 - 小石子
+      ctx.fillStyle = '#7f8c8d';
+      for (let i = 0; i < 50; i++) {
+        const seed = i * 137.508;
+        const x = (seed * 2.5 + bgOffset * 1.5) % canvasWidth;
+        const y = canvasHeight - 180 + (seed * 1.3) % 160;
+        const size = 2 + (seed % 3);
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 画地面中央隔离带
+      ctx.fillStyle = '#f1c40f';
+      for (let i = -2; i < 20; i++) {
+        const y = canvasHeight - 100 + (i * 60 + bgOffset * 0.6) % 200;
+        ctx.fillRect(50, y, 40, 20);
+        ctx.fillRect(310, y, 40, 20);
+      }
+
       // 画地板格子
       ctx.strokeStyle = '#444';
       ctx.lineWidth = 1;
@@ -267,6 +447,7 @@ export default function RunGame() {
 
       let hitObstacle = false;
       let collectedFruits = 0;
+      const collectedFruitPositions: {x: number, y: number}[] = [];
 
       setObjects(prev => {
         const newObjects = prev.map(obj => ({
@@ -281,6 +462,7 @@ export default function RunGame() {
           if (dx < 60 && dy < 60) {
             if (obj.type === 'fruit') {
               collectedFruits++;
+              collectedFruitPositions.push({x: obj.x + 40, y: obj.y + 40});
               setParticles(p => [...p, ...createParticles(obj.x, obj.y, obj.emoji)]);
               obj.y = canvasHeight + 200; // 标记删除
             } else {
@@ -294,6 +476,9 @@ export default function RunGame() {
 
       if (collectedFruits > 0) {
         setScore(prev => prev + collectedFruits * 10);
+        collectedFruitPositions.forEach(pos => {
+          setFloatingTexts(prev => [...prev, createFloatingText(pos.x, pos.y, '+10')]);
+        });
       }
 
       if (hitObstacle) {
@@ -311,6 +496,14 @@ export default function RunGame() {
         })).filter(p => p.life > 0)
       );
 
+      setFloatingTexts(prev =>
+        prev.map(t => ({
+          ...t,
+          y: t.y + t.vy,
+          life: t.life - 0.03
+        })).filter(t => t.life > 0)
+      );
+
       objects.forEach(obj => {
         ctx.font = '60px Arial';
         ctx.textAlign = 'center';
@@ -324,6 +517,20 @@ export default function RunGame() {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(p.emoji, p.x, p.y);
+        ctx.globalAlpha = 1;
+      });
+
+      floatingTexts.forEach(t => {
+        ctx.globalAlpha = t.life;
+        ctx.font = 'bold 36px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#FFD700';
+        ctx.shadowColor = '#FF6B35';
+        ctx.shadowBlur = 10;
+        ctx.fillText(t.text, t.x, t.y);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#000';
         ctx.globalAlpha = 1;
       });
 
@@ -349,7 +556,7 @@ export default function RunGame() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, spawnObject, playerX, playerY, objects, particles, speed]);
+  }, [gameState, spawnObject, playerX, playerY, objects, particles, floatingTexts, speed, fruits, junkFood]);
 
   const handleGameOver = () => {
     addScore(score);
@@ -454,7 +661,7 @@ export default function RunGame() {
                     <span>吃水果得 +10 分</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span>🦠🍔🚬</span>
+                    <span>🍺🚬🌶️🍔</span>
                     <span>碰到不健康的东西游戏结束</span>
                   </li>
                 </ul>

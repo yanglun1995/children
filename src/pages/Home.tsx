@@ -13,18 +13,18 @@ const games = [
   },
   {
     id: 'run',
-    name: '卫生习惯跑酷',
+    name: '地铁跑酷大作战',
     icon: '🏃',
-    color: 'from-green-400 to-teal-400',
-    description: '跑酷学习卫生知识！',
+    color: 'from-green-400 to-emerald-400',
+    description: '跑酷躲避垃圾食品！',
     path: '/game/run',
   },
   {
     id: 'quiz',
     name: '疾病防控小擂台',
-    icon: '🎯',
+    icon: '⚔️',
     color: 'from-purple-400 to-pink-400',
-    description: '知识问答挑战！',
+    description: '知识问答战斗！',
     path: '/game/quiz',
   },
   {
@@ -34,6 +34,22 @@ const games = [
     color: 'from-blue-400 to-cyan-400',
     description: '体验医生的工作！',
     path: '/game/doctor',
+  },
+  {
+    id: 'miner',
+    name: '黄金矿工问答',
+    icon: '⛏️',
+    color: 'from-amber-400 to-yellow-400',
+    description: '知识问答大挑战！',
+    path: '/game/miner',
+  },
+  {
+    id: 'matching',
+    name: '健康连连看',
+    icon: '🔗',
+    color: 'from-teal-400 to-cyan-400',
+    description: '配对健康知识！',
+    path: '/game/matching',
   },
 ];
 

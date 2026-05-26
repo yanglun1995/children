@@ -6,6 +6,8 @@ import QuizGame from "@/pages/QuizGame";
 import DoctorGame from "@/pages/DoctorGame";
 import Encyclopedia from "@/pages/Encyclopedia";
 import Profile from "@/pages/Profile";
+import MatchingGame from "@/pages/MatchingGame";
+import MinerGame from "@/pages/MinerGame";
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
         <Route path="/game/doctor" element={<DoctorGame />} />
         <Route path="/encyclopedia" element={<Encyclopedia />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/game/matching" element={<MatchingGame />} />
+        <Route path="/game/miner" element={<MinerGame />} />
       </Routes>
     </Router>
   );
