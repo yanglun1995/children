@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '@/stores/gameStore';
-import { ArrowLeft, Pause, Play, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Pause, Play, RotateCcw, BookOpen, CheckCircle } from 'lucide-react';
+import { knowledgeCards } from '@/data/questions';
 
 interface Fruit {
   id: number;
@@ -39,37 +40,25 @@ export default function FruitSliceGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover'>('menu');
+  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover' | 'revive'>('menu');
   const [score, setScore] = useState(0);
-  const [lives, setLives] = useState(3);
   const [fruits, setFruits] = useState<Fruit[]>([]);
   const [slicedFruits, setSlicedFruits] = useState<SlicedFruit[]>([]);
   const [sliceTrail, setSliceTrail] = useState<SliceTrail>({ points: [], opacity: 1 });
-  const [showKnowledge, setShowKnowledge] = useState(false);
-  const [knowledge, setKnowledge] = useState({ title: '', content: '' });
+  const [reviveKnowledge, setReviveKnowledge] = useState<any>(null);
+  const [isKnowledgeLearned, setIsKnowledgeLearned] = useState(false);
   const lastSpawnRef = useRef(0);
   const fruitIdRef = useRef(0);
 
-  const fruitEmojis = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝'];
-  const bacteriaEmojis = ['🦠', '🤢'];
+  const fruitEmojis = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉', '🍍', '🥭'];
+  const bacteriaEmojis = ['🦠', '🤢', '💀', '☠️'];
 
-  const knowledgeTips = [
-    {
-      title: '七步洗手法',
-      content: '掌心相对搓一搓\n手心手背搓一搓\n手指交叉搓一搓\n握成拳头搓一搓\n拇指转转搓一搓\n指尖手心搓一搓\n手腕手腕搓一搓',
-    },
-    {
-      title: '细菌无处不在',
-      content: '细菌很小很小，我们看不见它们。但是它们喜欢藏在我们的手上、玩具上、门把手上。所以一定要勤洗手哦！',
-    },
-    {
-      title: '健康饮食',
-      content: '多吃水果蔬菜可以帮助我们增强抵抗力，让身体更加强壮，不容易被细菌和病毒打败！',
-    },
-  ];
+  const getRandomKnowledge = () => {
+    return knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
+  };
 
   const createFruit = useCallback((canvasWidth: number, canvasHeight: number): Fruit => {
-    const isBacteria = Math.random() < 0.15;
+    const isBacteria = Math.random() < 0.25;
     const emoji = isBacteria
       ? bacteriaEmojis[Math.floor(Math.random() * bacteriaEmojis.length)]
       : fruitEmojis[Math.floor(Math.random() * fruitEmojis.length)];
@@ -83,7 +72,7 @@ export default function FruitSliceGame() {
       y: canvasHeight + 50,
       vx: (Math.random() - 0.5) * 8 * side,
       vy: -(Math.random() * 6 + 14),
-      radius: 40,
+      radius: 45,
       emoji,
       type: isBacteria ? 'bacteria' : 'fruit',
       rotation: 0,
@@ -95,7 +84,7 @@ export default function FruitSliceGame() {
     if (fruit.type === 'bacteria') {
       return {
         newSliced: [...slicedFruits],
-        scoreChange: -10,
+        scoreChange: 0,
         isBacteria: true,
       };
     }
@@ -125,14 +114,6 @@ export default function FruitSliceGame() {
       },
     ];
 
-    const knowledgeTip = knowledgeTips[Math.floor(Math.random() * knowledgeTips.length)];
-    
-    setTimeout(() => {
-      setKnowledge(knowledgeTip);
-      setShowKnowledge(true);
-      setTimeout(() => setShowKnowledge(false), 3000);
-    }, 500);
-
     return {
       newSliced: [...slicedFruits, ...newSliced],
       scoreChange: 10,
@@ -155,7 +136,7 @@ export default function FruitSliceGame() {
     let newFruits = [...fruits];
     let newSliced = [...slicedFruits];
     let scoreChange = 0;
-    let lifeChange = 0;
+    let hitBacteria = false;
 
     newFruits.forEach((fruit) => {
       const dx = canvasX - fruit.x;
@@ -167,7 +148,7 @@ export default function FruitSliceGame() {
         newSliced = result.newSliced;
         scoreChange += result.scoreChange;
         if (result.isBacteria) {
-          lifeChange -= 1;
+          hitBacteria = true;
         }
       }
     });
@@ -176,15 +157,13 @@ export default function FruitSliceGame() {
 
     setFruits(newFruits);
     setSlicedFruits(newSliced);
-    setScore((prev) => Math.max(0, prev + scoreChange));
-    setLives((prev) => {
-      const newLives = prev + lifeChange;
-      if (newLives <= 0) {
-        setGameState('gameover');
-        handleGameOver();
-      }
-      return Math.max(0, newLives);
-    });
+    setScore((prev) => prev + scoreChange);
+    
+    if (hitBacteria) {
+      setReviveKnowledge(getRandomKnowledge());
+      setIsKnowledgeLearned(false);
+      setGameState('gameover');
+    }
   }, [gameState, fruits, slicedFruits, sliceFruit]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -223,22 +202,33 @@ export default function FruitSliceGame() {
         icon: '🍎',
       });
     }
-    if (score >= 50) {
+  };
+
+  const learnAndRevive = () => {
+    if (reviveKnowledge) {
       addKnowledgeCard({
-        id: 'fruit-k1',
-        title: '水果的益处',
-        content: '水果富含维生素和矿物质，可以帮助我们增强免疫力，抵抗疾病！',
+        id: reviveKnowledge.id,
+        title: reviveKnowledge.title,
+        content: reviveKnowledge.content,
         unlockedAt: new Date().toISOString(),
       });
     }
+    setIsKnowledgeLearned(true);
+  };
+
+  const revive = () => {
+    setGameState('playing');
+    setFruits([]);
+    setSlicedFruits([]);
+    setSliceTrail({ points: [], opacity: 1 });
   };
 
   const startGame = () => {
     setGameState('playing');
     setScore(0);
-    setLives(3);
     setFruits([]);
     setSlicedFruits([]);
+    setSliceTrail({ points: [], opacity: 1 });
     fruitIdRef.current = 0;
     lastSpawnRef.current = 0;
   };
@@ -260,9 +250,14 @@ export default function FruitSliceGame() {
       const deltaTime = timestamp - lastTime;
       lastTime = timestamp;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, '#87CEEB');
+      gradient.addColorStop(0.5, '#98FB98');
+      gradient.addColorStop(1, '#FFE4B5');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      if (timestamp - lastSpawnRef.current > 800) {
+      if (timestamp - lastSpawnRef.current > 600) {
         setFruits((prev) => [...prev, createFruit(canvas.width, canvas.height)]);
         lastSpawnRef.current = timestamp;
       }
@@ -294,9 +289,6 @@ export default function FruitSliceGame() {
 
       setSliceTrail((prev) => ({ ...prev, opacity: prev.opacity * 0.95 }));
 
-      ctx.fillStyle = '#f0f9ff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       fruits.forEach((fruit) => {
         ctx.save();
         ctx.translate(fruit.x, fruit.y);
@@ -304,6 +296,12 @@ export default function FruitSliceGame() {
         ctx.font = `${fruit.radius * 1.5}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        
+        if (fruit.type === 'bacteria') {
+          ctx.shadowColor = '#ff4444';
+          ctx.shadowBlur = 15;
+        }
+        
         ctx.fillText(fruit.emoji, 0, 0);
         ctx.restore();
       });
@@ -313,7 +311,7 @@ export default function FruitSliceGame() {
         ctx.globalAlpha = fruit.opacity;
         ctx.translate(fruit.x, fruit.y);
         ctx.rotate(fruit.rotation);
-        ctx.font = `${50}px Arial`;
+        ctx.font = `50px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(fruit.emoji, 0, 0);
@@ -330,6 +328,8 @@ export default function FruitSliceGame() {
         ctx.lineWidth = 8;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 10;
         ctx.stroke();
       }
 
@@ -346,7 +346,7 @@ export default function FruitSliceGame() {
   }, [gameState, createFruit, fruits, slicedFruits, sliceTrail]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-red-50 to-orange-50">
+    <div className="min-h-screen bg-gradient-to-b from-sky-400 via-emerald-200 to-orange-100">
       <header className="bg-white/80 backdrop-blur-sm shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <button
@@ -355,15 +355,8 @@ export default function FruitSliceGame() {
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <span key={i} className={`text-xl ${i < lives ? '' : 'opacity-30'}`}>❤️</span>
-              ))}
-            </div>
-            <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-1 rounded-full font-bold">
-              {score} 分
-            </div>
+          <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-6 py-2 rounded-full font-bold text-xl shadow-lg">
+            {score} 分
           </div>
           {gameState === 'playing' && (
             <button
@@ -407,23 +400,22 @@ export default function FruitSliceGame() {
           onMouseUp={handleTouchEnd}
         />
 
-        {showKnowledge && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl max-w-xs animate-bounce">
-            <div className="text-4xl mb-3 text-center">💡</div>
-            <h3 className="font-bold text-lg text-gray-800 mb-2 text-center">{knowledge.title}</h3>
-            <p className="text-gray-600 text-sm whitespace-pre-line">{knowledge.content}</p>
-          </div>
-        )}
-
         {gameState === 'menu' && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
-              <div className="text-6xl mb-4">🍎</div>
+              <div className="text-7xl mb-4">🍎</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">切水果大战细菌</h2>
-              <p className="text-gray-600 mb-4">滑动屏幕切割水果获得分数<br />注意躲避细菌！</p>
+              <div className="text-left bg-gray-50 rounded-2xl p-4 mb-6">
+                <p className="text-gray-700 mb-2">🎮 游戏规则：</p>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>✓ 切水果获得 +10 分</li>
+                  <li>✗ 碰到细菌游戏结束</li>
+                  <li>💡 学习知识可以复活</li>
+                </ul>
+              </div>
               <button
                 onClick={startGame}
-                className="bg-gradient-to-r from-red-400 to-orange-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+                className="bg-gradient-to-r from-red-400 to-orange-400 text-white font-bold py-4 px-10 rounded-full shadow-lg hover:scale-105 transition-transform text-lg"
               >
                 开始游戏
               </button>
@@ -434,8 +426,8 @@ export default function FruitSliceGame() {
         {gameState === 'paused' && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
-              <div className="text-6xl mb-4">⏸️</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">游戏暂停</h2>
+              <div className="text-7xl mb-4">⏸️</div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">游戏暂停</h2>
               <div className="flex flex-col gap-3">
                 <button
                   onClick={() => setGameState('playing')}
@@ -457,23 +449,68 @@ export default function FruitSliceGame() {
         {gameState === 'gameover' && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
-              <div className="text-6xl mb-4">🎉</div>
+              <div className="text-7xl mb-4">💥</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">游戏结束！</h2>
-              <p className="text-4xl font-bold text-orange-500 mb-4">{score} 分</p>
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={startGame}
-                  className="bg-gradient-to-r from-red-400 to-orange-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
-                >
-                  再玩一次
-                </button>
-                <button
-                  onClick={() => navigate('/')}
-                  className="bg-gray-100 text-gray-700 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
-                >
-                  返回首页
-                </button>
-              </div>
+              <div className="text-4xl font-bold text-orange-500 mb-6">{score} 分</div>
+              
+              {!isKnowledgeLearned && reviveKnowledge && (
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-5 mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen className="w-6 h-6 text-purple-500" />
+                    <h3 className="font-bold text-gray-800">学习知识复活</h3>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 mb-4">
+                    <h4 className="font-bold text-gray-800 mb-2">{reviveKnowledge.title}</h4>
+                    <p className="text-sm text-gray-600 whitespace-pre-line">{reviveKnowledge.content}</p>
+                  </div>
+                  <button
+                    onClick={learnAndRevive}
+                    className="w-full bg-gradient-to-r from-purple-400 to-pink-400 text-white font-bold py-3 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    我学会了 ✅
+                  </button>
+                </div>
+              )}
+
+              {isKnowledgeLearned && (
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={revive}
+                    className="bg-gradient-to-r from-green-400 to-teal-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle className="w-5 h-5" /> 复活继续
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleGameOver();
+                      navigate('/');
+                    }}
+                    className="bg-gray-100 text-gray-700 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    返回首页
+                  </button>
+                </div>
+              )}
+
+              {!reviveKnowledge && (
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={startGame}
+                    className="bg-gradient-to-r from-red-400 to-orange-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    再玩一次
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleGameOver();
+                      navigate('/');
+                    }}
+                    className="bg-gray-100 text-gray-700 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    返回首页
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

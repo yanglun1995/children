@@ -1,35 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '@/stores/gameStore';
-import { ArrowLeft, Pause, Play, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Pause, Play, RotateCcw, BookOpen, CheckCircle } from 'lucide-react';
+import { knowledgeCards } from '@/data/questions';
 
-interface Obstacle {
+interface GameObject {
   id: number;
   x: number;
   y: number;
   width: number;
   height: number;
-  type: 'low' | 'high' | 'soap';
+  type: 'fruit' | 'obstacle';
   emoji: string;
+  category?: 'bacteria' | 'junk';
 }
 
-interface Collectible {
-  id: number;
+interface Particle {
   x: number;
   y: number;
-  collected: boolean;
+  vx: number;
+  vy: number;
+  life: number;
   emoji: string;
-}
-
-interface HygieneAction {
-  id: number;
-  x: number;
-  y: number;
-  completed: boolean;
-  action: string;
-  emoji: string;
-  title: string;
-  content: string;
 }
 
 export default function RunGame() {
@@ -37,138 +29,154 @@ export default function RunGame() {
   const { addScore, addBadge, addKnowledgeCard } = useGameStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<number>();
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover'>('menu');
   const [score, setScore] = useState(0);
-  const [distance, setDistance] = useState(0);
-  const [lives, setLives] = useState(3);
-  const [playerY, setPlayerY] = useState(0);
+  const [playerX, setPlayerX] = useState(1); // 0, 1, 2 三条道
+  const [playerY, setPlayerY] = useState(0); // 跳跃时的Y偏移
   const [isJumping, setIsJumping] = useState(false);
-  const [isSliding, setIsSliding] = useState(false);
-  const [obstacles, setObstacles] = useState<Obstacle[]>([]);
-  const [collectibles, setCollectibles] = useState<Collectible[]>([]);
-  const [hygieneActions, setHygieneActions] = useState<HygieneAction[]>([]);
-  const [showKnowledge, setShowKnowledge] = useState(false);
-  const [knowledge, setKnowledge] = useState({ title: '', content: '' });
-  const gameLoopRef = useRef<number>();
+  const [objects, setObjects] = useState<GameObject[]>([]);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const [speed, setSpeed] = useState(8);
+  const [reviveKnowledge, setReviveKnowledge] = useState<any>(null);
+  const [isKnowledgeLearned, setIsKnowledgeLearned] = useState(false);
+  
+  const objectIdRef = useRef(0);
   const lastSpawnRef = useRef(0);
-  const obstacleIdRef = useRef(0);
-  const groundY = 0;
-  const gravity = 0.8;
-  const jumpForce = -15;
+  const laneWidth = 120;
+  const canvasHeight = 800;
+  const canvasWidth = 400;
 
-  const knowledgeTips = [
-    {
-      title: '正确刷牙',
-      content: '刷牙要上下刷，不是左右刷！\n每次刷2分钟以上\n早晚都要刷牙哦！',
-    },
-    {
-      title: '咳嗽礼仪',
-      content: '咳嗽或打喷嚏时\n要用纸巾或手肘遮住\n不要对着人咳嗽！',
-    },
-    {
-      title: '勤洗手',
-      content: '饭前便后要洗手\n外出回家要洗手\n接触脏东西后要洗手',
-    },
-  ];
-
-  const spawnObstacle = useCallback((canvasWidth: number, canvasHeight: number) => {
-    const types: Obstacle['type'][] = ['low', 'high', 'soap'];
-    const type = types[Math.floor(Math.random() * types.length)];
-    
-    let obstacle: Obstacle;
-    switch (type) {
-      case 'low':
-        obstacle = {
-          id: obstacleIdRef.current++,
-          x: canvasWidth + 50,
-          y: canvasHeight - 100,
-          width: 60,
-          height: 50,
-          type: 'low',
-          emoji: '🚧',
-        };
-        break;
-      case 'high':
-        obstacle = {
-          id: obstacleIdRef.current++,
-          x: canvasWidth + 50,
-          y: canvasHeight - 200,
-          width: 50,
-          height: 80,
-          type: 'high',
-          emoji: '🦟',
-        };
-        break;
-      case 'soap':
-        obstacle = {
-          id: obstacleIdRef.current++,
-          x: canvasWidth + 50,
-          y: canvasHeight - 80,
-          width: 40,
-          height: 40,
-          type: 'soap',
-          emoji: '🧼',
-        };
-        break;
-    }
-    return obstacle;
-  }, []);
-
-  const spawnCollectible = useCallback((canvasWidth: number, canvasHeight: number) => {
-    const y = canvasHeight - 200 - Math.random() * 100;
-    return {
-      id: obstacleIdRef.current++,
-      x: canvasWidth + 50,
-      y,
-      collected: false,
-      emoji: ['💊', '💪', '🥕'][Math.floor(Math.random() * 3)],
-    };
-  }, []);
-
-  const spawnHygieneAction = useCallback((canvasWidth: number, canvasHeight: number) => {
-    const actions = [
-      { action: 'wash', emoji: '🧼', title: '洗手台', content: '看到洗手台了！\n记得用七步洗手法洗手！' },
-      { action: 'tissue', emoji: '🧻', title: '纸巾盒', content: '纸巾可以用来\n擦鼻涕和擦手！' },
-      { action: 'mask', emoji: '😷', title: '口罩机', content: '人多的时候\n要记得戴口罩哦！' },
-    ];
-    const action = actions[Math.floor(Math.random() * actions.length)];
-    return {
-      id: obstacleIdRef.current++,
-      x: canvasWidth + 50,
-      y: canvasHeight - 150,
-      completed: false,
-      ...action,
-    };
-  }, []);
-
-  const handleJump = useCallback(() => {
-    if (!isJumping && gameState === 'playing') {
-      setIsJumping(true);
-      setPlayerY(jumpForce);
-    }
-  }, [isJumping, gameState]);
-
-  const handleSlide = useCallback(() => {
-    if (gameState === 'playing') {
-      setIsSliding(true);
-      setTimeout(() => setIsSliding(false), 500);
-    }
-  }, [gameState]);
-
-  const startGame = () => {
-    setGameState('playing');
-    setScore(0);
-    setDistance(0);
-    setLives(3);
-    setPlayerY(0);
-    setIsJumping(false);
-    setIsSliding(false);
-    setObstacles([]);
-    setCollectibles([]);
-    setHygieneActions([]);
-    obstacleIdRef.current = 0;
-    lastSpawnRef.current = 0;
+  const fruits = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉', '🍍', '🥭'];
+  const obstacles = {
+    bacteria: ['🦠', '🤢', '💀', '☠️', '🦟'],
+    junk: ['🍔', '🍕', '🌭', '🍟', '🍗', '🍺', '🍻', '🚬', '💊']
   };
+
+  const getRandomKnowledge = () => {
+    return knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
+  };
+
+  const spawnObject = useCallback(() => {
+    const lane = Math.floor(Math.random() * 3);
+    const isFruit = Math.random() < 0.4;
+    
+    let emoji, type, category;
+    if (isFruit) {
+      emoji = fruits[Math.floor(Math.random() * fruits.length)];
+      type = 'fruit';
+    } else {
+      const obstacleType = Math.random() < 0.5 ? 'bacteria' : 'junk';
+      const obstacleList = obstacles[obstacleType];
+      emoji = obstacleList[Math.floor(Math.random() * obstacleList.length)];
+      type = 'obstacle';
+      category = obstacleType;
+    }
+
+    return {
+      id: objectIdRef.current++,
+      x: lane * laneWidth + 20,
+      y: -80,
+      width: 80,
+      height: 80,
+      type,
+      emoji,
+      category
+    };
+  }, []);
+
+  const createParticles = (x: number, y: number, emoji: string) => {
+    const newParticles: Particle[] = [];
+    for (let i = 0; i < 5; i++) {
+      newParticles.push({
+        x,
+        y,
+        vx: (Math.random() - 0.5) * 10,
+        vy: (Math.random() - 0.5) * 10,
+        life: 1,
+        emoji
+      });
+    }
+    return newParticles;
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (gameState !== 'playing') return;
+    
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // 左右滑动
+      if (dx > 50) {
+        setPlayerX(prev => Math.min(2, prev + 1));
+      } else if (dx < -50) {
+        setPlayerX(prev => Math.max(0, prev - 1));
+      }
+    } else {
+      // 上下滑动
+      if (dy < -50 && !isJumping) {
+        setIsJumping(true);
+        let jumpHeight = 0;
+        const jumpUp = setInterval(() => {
+          jumpHeight += 15;
+          setPlayerY(jumpHeight);
+          if (jumpHeight >= 150) {
+            clearInterval(jumpUp);
+            const jumpDown = setInterval(() => {
+              jumpHeight -= 15;
+              setPlayerY(Math.max(0, jumpHeight));
+              if (jumpHeight <= 0) {
+                clearInterval(jumpDown);
+                setIsJumping(false);
+              }
+            }, 20);
+          }
+        }, 20);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState !== 'playing') return;
+      
+      if (e.key === 'ArrowLeft') {
+        setPlayerX(prev => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        setPlayerX(prev => Math.min(2, prev + 1));
+      } else if ((e.key === 'ArrowUp' || e.key === ' ') && !isJumping) {
+        setIsJumping(true);
+        let jumpHeight = 0;
+        const jumpUp = setInterval(() => {
+          jumpHeight += 15;
+          setPlayerY(jumpHeight);
+          if (jumpHeight >= 150) {
+            clearInterval(jumpUp);
+            const jumpDown = setInterval(() => {
+              jumpHeight -= 15;
+              setPlayerY(Math.max(0, jumpHeight));
+              if (jumpHeight <= 0) {
+                clearInterval(jumpDown);
+                setIsJumping(false);
+              }
+            }, 20);
+          }
+        }, 20);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState, isJumping]);
 
   useEffect(() => {
     if (gameState !== 'playing') return;
@@ -180,256 +188,280 @@ export default function RunGame() {
     if (!ctx) return;
 
     let lastTime = 0;
-    let currentPlayerY = 0;
-    let velocity = 0;
+    let bgOffset = 0;
+    let bgOffset2 = 0;
 
     const gameLoop = (timestamp: number) => {
       if (gameState !== 'playing') return;
 
-      const deltaTime = Math.min((timestamp - lastTime) / 16.67, 2);
+      const deltaTime = timestamp - lastTime;
       lastTime = timestamp;
 
-      ctx.fillStyle = '#e8f5e9';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      bgOffset = (bgOffset + speed * 0.5) % 200;
+      bgOffset2 = (bgOffset2 + speed * 0.3) % 150;
 
-      ctx.fillStyle = '#81c784';
-      ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+      // 画地铁隧道背景
+      const tunnelGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+      tunnelGradient.addColorStop(0, '#1a1a2e');
+      tunnelGradient.addColorStop(0.5, '#16213e');
+      tunnelGradient.addColorStop(1, '#0f3460');
+      ctx.fillStyle = tunnelGradient;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-      for (let i = 0; i < 20; i++) {
-        const x = ((timestamp / 10 - i * 100) % (canvas.width + 200)) - 100;
-        ctx.fillStyle = '#66bb6a';
-        ctx.fillRect(x, canvas.height - 65, 40, 8);
+      // 画两侧墙壁
+      ctx.fillStyle = '#2d3436';
+      ctx.fillRect(0, 0, 20, canvasHeight);
+      ctx.fillRect(canvasWidth - 20, 0, 20, canvasHeight);
+
+      // 画轨道
+      ctx.strokeStyle = '#636e72';
+      ctx.lineWidth = 3;
+      for (let i = 1; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * laneWidth + 10, 0);
+        ctx.lineTo(i * laneWidth + 10, canvasHeight);
+        ctx.stroke();
       }
 
-      if (timestamp - lastSpawnRef.current > 1500) {
-        setObstacles((prev) => [...prev, spawnObstacle(canvas.width, canvas.height)]);
-        if (Math.random() > 0.5) {
-          setCollectibles((prev) => [...prev, spawnCollectible(canvas.width, canvas.height)]);
-        }
-        if (Math.random() > 0.7) {
-          setHygieneActions((prev) => [...prev, spawnHygieneAction(canvas.width, canvas.height)]);
-        }
+      // 画轨道灯光
+      ctx.fillStyle = '#e74c3c';
+      for (let i = -5; i < 30; i++) {
+        const y = (i * 100 + bgOffset2) % (canvasHeight + 100) - 50;
+        ctx.beginPath();
+        ctx.arc(10, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(canvasWidth - 10, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 画地板
+      const floorGradient = ctx.createLinearGradient(0, canvasHeight - 200, 0, canvasHeight);
+      floorGradient.addColorStop(0, '#636e72');
+      floorGradient.addColorStop(1, '#2d3436');
+      ctx.fillStyle = floorGradient;
+      ctx.fillRect(0, canvasHeight - 200, canvasWidth, 200);
+
+      // 画地板格子
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      for (let i = -2; i < 20; i++) {
+        const y = canvasHeight - 200 + (i * 30 + bgOffset) % 200;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvasWidth, y);
+        ctx.stroke();
+      }
+
+      if (timestamp - lastSpawnRef.current > 800) {
+        setObjects(prev => [...prev, spawnObject()]);
         lastSpawnRef.current = timestamp;
-      }
-
-      setObstacles((prev) =>
-        prev
-          .map((obs) => ({ ...obs, x: obs.x - 8 * deltaTime }))
-          .filter((obs) => obs.x > -100)
-      );
-
-      setCollectibles((prev) =>
-        prev
-          .map((col) => ({ ...col, x: col.x - 8 * deltaTime }))
-          .filter((col) => col.x > -50 && !col.collected)
-      );
-
-      setHygieneActions((prev) =>
-        prev
-          .map((action) => ({ ...action, x: action.x - 8 * deltaTime }))
-          .filter((action) => action.x > -100 && !action.completed)
-      );
-
-      if (isJumping) {
-        velocity += gravity * deltaTime;
-        currentPlayerY += velocity * deltaTime;
-        if (currentPlayerY >= 0) {
-          currentPlayerY = 0;
-          velocity = 0;
-          setIsJumping(false);
+        
+        if (speed < 20) {
+          setSpeed(prev => prev + 0.2);
         }
       }
 
-      obstacles.forEach((obs) => {
-        const playerX = 100;
-        const playerY = canvas.height - 110 + currentPlayerY;
-        const playerWidth = 50;
-        const playerHeight = isSliding ? 30 : 80;
+      const playerScreenX = playerX * laneWidth + 20;
+      const playerScreenY = canvasHeight - 120 - playerY;
 
-        if (
-          playerX + playerWidth > obs.x &&
-          playerX < obs.x + obs.width &&
-          playerY + playerHeight > obs.y &&
-          playerY < obs.y + obs.height
-        ) {
-          setLives((prev) => {
-            const newLives = prev - 1;
-            if (newLives <= 0) {
-              setGameState('gameover');
-              handleGameOver();
+      let hitObstacle = false;
+      let collectedFruits = 0;
+
+      setObjects(prev => {
+        const newObjects = prev.map(obj => ({
+          ...obj,
+          y: obj.y + speed
+        })).filter(obj => obj.y < canvasHeight + 100);
+
+        newObjects.forEach(obj => {
+          const dx = Math.abs(playerScreenX + 40 - (obj.x + 40));
+          const dy = Math.abs(playerScreenY + 40 - (obj.y + 40));
+          
+          if (dx < 60 && dy < 60) {
+            if (obj.type === 'fruit') {
+              collectedFruits++;
+              setParticles(p => [...p, ...createParticles(obj.x, obj.y, obj.emoji)]);
+              obj.y = canvasHeight + 200; // 标记删除
+            } else {
+              hitObstacle = true;
             }
-            return Math.max(0, newLives);
-          });
-          setObstacles((prev) => prev.filter((o) => o.id !== obs.id));
-        }
-      });
-
-      collectibles.forEach((col) => {
-        if (col.collected) return;
-        const playerX = 100;
-        const playerY = canvas.height - 110 + currentPlayerY;
-        const distance = Math.sqrt(Math.pow(playerX + 25 - col.x, 2) + Math.pow(playerY + 40 - col.y, 2));
-        if (distance < 50) {
-          setCollectibles((prev) => prev.map((c) => (c.id === col.id ? { ...c, collected: true } : c)));
-          setScore((prev) => prev + 5);
-        }
-      });
-
-      hygieneActions.forEach((action) => {
-        if (action.completed) return;
-        const playerX = 100;
-        const playerY = canvas.height - 110 + currentPlayerY;
-        const distance = Math.abs(playerX + 25 - action.x);
-        if (distance < 60) {
-          setHygieneActions((prev) => prev.map((a) => (a.id === action.id ? { ...a, completed: true } : a)));
-          setScore((prev) => prev + 15);
-          const tip = knowledgeTips.find((t) => t.title === action.title);
-          if (tip) {
-            setKnowledge(tip);
-            setShowKnowledge(true);
-            setTimeout(() => setShowKnowledge(false), 3000);
           }
-        }
+        });
+
+        return newObjects.filter(obj => obj.y < canvasHeight + 100);
       });
 
-      const playerDrawY = canvas.height - 110 + currentPlayerY;
-      ctx.font = isSliding ? '60px Arial' : '80px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('🏃', 100, playerDrawY + (isSliding ? 20 : 30));
+      if (collectedFruits > 0) {
+        setScore(prev => prev + collectedFruits * 10);
+      }
 
-      obstacles.forEach((obs) => {
-        ctx.font = '50px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(obs.emoji, obs.x + obs.width / 2, obs.y + obs.height / 2 + 15);
-      });
+      if (hitObstacle) {
+        setReviveKnowledge(getRandomKnowledge());
+        setIsKnowledgeLearned(false);
+        setGameState('gameover');
+      }
 
-      collectibles.forEach((col) => {
-        if (col.collected) return;
-        ctx.font = '40px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(col.emoji, col.x, col.y);
-      });
+      setParticles(prev => 
+        prev.map(p => ({
+          ...p,
+          x: p.x + p.vx,
+          y: p.y + p.vy,
+          life: p.life - 0.02
+        })).filter(p => p.life > 0)
+      );
 
-      hygieneActions.forEach((action) => {
-        if (action.completed) return;
+      objects.forEach(obj => {
         ctx.font = '60px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(action.emoji, action.x, action.y);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(obj.emoji, obj.x + 40, obj.y + 40);
       });
 
-      setDistance((prev) => prev + 1);
-      if (Math.floor(distance / 100) > Math.floor((distance - 1) / 100)) {
-        setScore((prev) => prev + 1);
-      }
+      particles.forEach(p => {
+        ctx.globalAlpha = p.life;
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.emoji, p.x, p.y);
+        ctx.globalAlpha = 1;
+      });
 
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
+      // 画玩家
+      ctx.font = '70px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🏃', playerScreenX + 40, playerScreenY + 40);
+
+      // 画发光效果
+      ctx.shadowColor = '#00ff88';
+      ctx.shadowBlur = 20;
+      ctx.fillText('✨', playerScreenX + 40, playerScreenY);
+      ctx.shadowBlur = 0;
+
+      animationRef.current = requestAnimationFrame(gameLoop);
     };
 
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
+    animationRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
-      if (gameLoopRef.current) {
-        cancelAnimationFrame(gameLoopRef.current);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, isJumping, isSliding, obstacles, collectibles, hygieneActions, distance, spawnObstacle, spawnCollectible, spawnHygieneAction]);
+  }, [gameState, spawnObject, playerX, playerY, objects, particles, speed]);
 
   const handleGameOver = () => {
     addScore(score);
-    if (score >= 100) {
+    if (score >= 200) {
       addBadge({
         id: 'run-master',
         name: '跑步达人',
         icon: '🏃',
       });
     }
-    if (score >= 50) {
+  };
+
+  const learnAndRevive = () => {
+    if (reviveKnowledge) {
       addKnowledgeCard({
-        id: 'run-k1',
-        title: '运动的好处',
-        content: '多运动可以增强体质，提高免疫力，让我们更健康！每天运动30分钟，对身体非常好。',
+        id: reviveKnowledge.id,
+        title: reviveKnowledge.title,
+        content: reviveKnowledge.content,
         unlockedAt: new Date().toISOString(),
       });
     }
+    setIsKnowledgeLearned(true);
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'ArrowUp') {
-        e.preventDefault();
-        handleJump();
-      } else if (e.code === 'ArrowDown') {
-        e.preventDefault();
-        handleSlide();
-      }
-    };
+  const revive = () => {
+    setGameState('playing');
+    setObjects([]);
+    setParticles([]);
+    setSpeed(8);
+    setPlayerX(1);
+    setPlayerY(0);
+    setIsJumping(false);
+    objectIdRef.current = 0;
+    lastSpawnRef.current = 0;
+  };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleJump, handleSlide]);
+  const startGame = () => {
+    setGameState('playing');
+    setScore(0);
+    setObjects([]);
+    setParticles([]);
+    setSpeed(8);
+    setPlayerX(1);
+    setPlayerY(0);
+    setIsJumping(false);
+    objectIdRef.current = 0;
+    lastSpawnRef.current = 0;
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-teal-50">
-      <header className="bg-white/80 backdrop-blur-sm shadow-lg">
+    <div className="min-h-screen bg-gray-900">
+      <header className="bg-gray-800/90 backdrop-blur-sm shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
-            className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+            className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-600 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
+            <ArrowLeft className="w-5 h-5 text-white" />
           </button>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <span key={i} className={`text-xl ${i < lives ? '' : 'opacity-30'}`}>❤️</span>
-              ))}
-            </div>
-            <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-1 rounded-full font-bold">
-              {score} 分
-            </div>
-            <div className="text-gray-600 font-medium">{distance}m</div>
+          <div className="bg-gradient-to-r from-green-400 to-emerald-400 text-white px-6 py-2 rounded-full font-bold text-xl shadow-lg">
+            {score} 分
           </div>
           {gameState === 'playing' && (
             <button
               onClick={() => setGameState('paused')}
-              className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+              className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-600 transition-colors"
             >
-              <Pause className="w-5 h-5 text-gray-600" />
+              <Pause className="w-5 h-5 text-white" />
             </button>
           )}
         </div>
       </header>
 
-      <div className="p-4">
-        <p className="text-center text-gray-600 mb-2">空格/上键跳跃 | 下键滑行</p>
-      </div>
-
-      <div ref={containerRef} className="relative w-full h-[calc(100vh-180px)]">
+      <div ref={containerRef} className="relative w-full h-[calc(100vh-120px)] flex justify-center items-center bg-gray-900">
         <canvas
           ref={canvasRef}
-          width={800}
-          height={500}
-          className="w-full h-full rounded-3xl shadow-2xl"
-          onClick={handleJump}
+          width={canvasWidth}
+          height={canvasHeight}
+          className="h-full max-w-full shadow-2xl"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         />
 
-        {showKnowledge && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl max-w-xs animate-bounce">
-            <div className="text-4xl mb-3 text-center">💡</div>
-            <h3 className="font-bold text-lg text-gray-800 mb-2 text-center">{knowledge.title}</h3>
-            <p className="text-gray-600 text-sm whitespace-pre-line">{knowledge.content}</p>
-          </div>
-        )}
-
         {gameState === 'menu' && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-3xl">
-            <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
-              <div className="text-6xl mb-4">🏃</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">卫生习惯跑酷</h2>
-              <p className="text-gray-600 mb-4">躲避障碍物<br />收集健康能量<br />完成卫生任务</p>
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-2 border-cyan-500">
+              <div className="text-7xl mb-4">🏃</div>
+              <h2 className="text-2xl font-bold text-white mb-2">地铁跑酷大作战</h2>
+              <div className="text-left bg-gray-700/50 rounded-2xl p-4 mb-6">
+                <p className="text-cyan-400 mb-2 font-bold">🎮 游戏规则：</p>
+                <ul className="text-sm text-gray-300 space-y-2">
+                  <li className="flex items-center gap-2">
+                    <span>👈👉</span>
+                    <span>左右滑动换道</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>⬆️</span>
+                    <span>上滑/空格键跳跃</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>🍎</span>
+                    <span>吃水果得 +10 分</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span>🦠🍔🚬</span>
+                    <span>碰到不健康的东西游戏结束</span>
+                  </li>
+                </ul>
+              </div>
               <button
                 onClick={startGame}
-                className="bg-gradient-to-r from-green-400 to-teal-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+                className="bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold py-4 px-10 rounded-full shadow-lg hover:scale-105 transition-transform text-lg"
               >
                 开始游戏
               </button>
@@ -438,14 +470,14 @@ export default function RunGame() {
         )}
 
         {gameState === 'paused' && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-3xl">
-            <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
-              <div className="text-6xl mb-4">⏸️</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">游戏暂停</h2>
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-2 border-yellow-500">
+              <div className="text-7xl mb-4">⏸️</div>
+              <h2 className="text-2xl font-bold text-white mb-6">游戏暂停</h2>
               <div className="flex flex-col gap-3">
                 <button
                   onClick={() => setGameState('playing')}
-                  className="bg-gradient-to-r from-green-400 to-teal-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"
+                  className="bg-gradient-to-r from-green-400 to-emerald-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"
                 >
                   <Play className="w-5 h-5" /> 继续游戏
                 </button>
@@ -461,26 +493,70 @@ export default function RunGame() {
         )}
 
         {gameState === 'gameover' && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-3xl">
-            <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">游戏结束！</h2>
-              <p className="text-4xl font-bold text-green-500 mb-4">{score} 分</p>
-              <p className="text-gray-600 mb-4">跑了 {distance} 米</p>
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={startGame}
-                  className="bg-gradient-to-r from-green-400 to-teal-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
-                >
-                  再玩一次
-                </button>
-                <button
-                  onClick={() => navigate('/')}
-                  className="bg-gray-100 text-gray-700 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
-                >
-                  返回首页
-                </button>
-              </div>
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-2 border-red-500">
+              <div className="text-7xl mb-4">💥</div>
+              <h2 className="text-2xl font-bold text-white mb-2">游戏结束！</h2>
+              <div className="text-4xl font-bold text-green-400 mb-6">{score} 分</div>
+              
+              {!isKnowledgeLearned && reviveKnowledge && (
+                <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 rounded-2xl p-5 mb-6 border border-purple-400">
+                  <div className="flex items-center gap-2 mb-3 justify-center">
+                    <BookOpen className="w-6 h-6 text-purple-400" />
+                    <h3 className="font-bold text-white">学习知识复活</h3>
+                  </div>
+                  <div className="bg-gray-800 rounded-xl p-4 mb-4">
+                    <h4 className="font-bold text-cyan-400 mb-2">{reviveKnowledge.title}</h4>
+                    <p className="text-sm text-gray-300 whitespace-pre-line">{reviveKnowledge.content}</p>
+                  </div>
+                  <button
+                    onClick={learnAndRevive}
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    我学会了 ✅
+                  </button>
+                </div>
+              )}
+
+              {isKnowledgeLearned && (
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={revive}
+                    className="bg-gradient-to-r from-green-400 to-emerald-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle className="w-5 h-5" /> 复活继续
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleGameOver();
+                      navigate('/');
+                    }}
+                    className="bg-gray-700 text-gray-200 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    返回首页
+                  </button>
+                </div>
+              )}
+
+              {!reviveKnowledge && (
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={startGame}
+                    className="bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    再玩一次
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleGameOver();
+                      navigate('/');
+                    }}
+                    className="bg-gray-700 text-gray-200 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+                  >
+                    返回首页
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
