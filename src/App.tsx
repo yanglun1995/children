@@ -9,7 +9,7 @@ import Profile from "@/pages/Profile";
 import MatchingGame from "@/pages/MatchingGame";
 import MinerGame from "@/pages/MinerGame";
 import PuzzleGame from "@/pages/PuzzleGame";
-import MemoryGame from "@/pages/MemoryGame";
+import HammerGame from "@/pages/HammerGame";
 
 export default function App() {
   return (
@@ -25,7 +25,7 @@ export default function App() {
         <Route path="/game/matching" element={<MatchingGame />} />
         <Route path="/game/miner" element={<MinerGame />} />
         <Route path="/game/puzzle" element={<PuzzleGame />} />
-        <Route path="/game/memory" element={<MemoryGame />} />
+        <Route path="/game/hammer" element={<HammerGame />} />
       </Routes>
     </Router>
   );

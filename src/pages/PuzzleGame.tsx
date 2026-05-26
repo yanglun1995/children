@@ -89,15 +89,16 @@ export default function PuzzleGame() {
     setGameState('playing');
   }, []);
 
-  const checkWin = () => {
+  const checkWin = useCallback(() => {
+    if (pieces.length === 0) return;
     const isComplete = pieces.every(piece => piece.currentIndex === piece.correctIndex);
-    if (isComplete) {
+    if (isComplete && gameState === 'playing') {
       const puzzleScore = Math.max(100 - moves * 2 - Math.floor(time / 10), 10);
       const newScore = score + puzzleScore;
       setScore(newScore);
       setCompletedPuzzles(prev => [...new Set([...prev, currentPuzzle])]);
-      
-      if (completedPuzzles.length + 1 === puzzles.length) {
+
+      if (completedPuzzles.length + 1 >= puzzles.length) {
         addScore(newScore);
         addBadge({
           id: 'puzzle-master',
@@ -109,7 +110,11 @@ export default function PuzzleGame() {
         setGameState('menu');
       }
     }
-  };
+  }, [pieces, moves, time, score, currentPuzzle, completedPuzzles, gameState, addScore, addBadge]);
+
+  useEffect(() => {
+    checkWin();
+  }, [checkWin]);
 
   const handlePieceClick = (pieceId: number) => {
     if (selectedPiece === null) {
@@ -277,13 +282,6 @@ export default function PuzzleGame() {
                 <RotateCcw className="w-5 h-5" /> 重新开始
               </button>
             </div>
-
-            {(() => {
-              useEffect(() => {
-                checkWin();
-              }, [pieces]);
-              return null;
-            })()}
           </div>
         )}
 
