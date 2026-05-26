@@ -64,7 +64,7 @@ export default function QuizGame() {
     const targetLevel = levels[level - 1];
     const difficulty = targetLevel.difficulty;
     const questionCount = difficulty === 'hard' ? 6 : difficulty === 'medium' ? 5 : 4;
-    const levelQuestions = getRandomQuestions(questionCount, difficulty);
+    const newQuestions = getRandomQuestions(questionCount, difficulty);
 
     setCurrentLevel(level);
     setGameState('battle');
@@ -74,11 +74,13 @@ export default function QuizGame() {
     setScore(0);
     setTotalScore(prev => level === 1 ? 0 : prev);
     setMessage(`${targetLevel.name}开始！${targetLevel.description}`);
-    setLevelQuestions(levelQuestions);
-    setCurrentQuestion(levelQuestions[0]);
+    setLevelQuestions(newQuestions);
+    setCurrentQuestion(newQuestions[0]);
     setSelectedAnswer(null);
     setIsCorrect(null);
     setBattleAnimation(null);
+    setVirusShaking(false);
+    setVirusFlickering(false);
   }, []);
 
   const handleAnswer = async (answerIndex: number) => {
@@ -102,18 +104,18 @@ export default function QuizGame() {
       setVirusShaking(false);
       setVirusFlickering(false);
 
-      setScore(prev => prev + 50);
+      const newScore = score + 50;
+      setScore(newScore);
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setVirusHP(prev => Math.max(0, prev - 1));
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const newVirusHP = virusHP - 1;
+      setVirusHP(newVirusHP);
       setBattleAnimation(null);
 
-      if (virusHP - 1 <= 0) {
-        const finalScore = score + 50;
-        setScore(finalScore);
-        setTotalScore(prev => prev + finalScore);
+      if (newVirusHP <= 0) {
+        setTotalScore(prev => prev + newScore);
+        addScore(newScore);
         setMessage('你打败了病毒！🎉');
-        addScore(finalScore);
 
         await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -133,11 +135,12 @@ export default function QuizGame() {
       setBattleAnimation('virusAttack');
       setMessage('回答错误！受到攻击！');
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setPlayerHP(prev => Math.max(0, prev - 1));
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const newPlayerHP = playerHP - 1;
+      setPlayerHP(newPlayerHP);
       setBattleAnimation(null);
 
-      if (playerHP - 1 <= 0) {
+      if (newPlayerHP <= 0) {
         setMessage('你被病毒打败了...😢');
         await new Promise(resolve => setTimeout(resolve, 1500));
         setGameState('defeat');
@@ -203,6 +206,25 @@ export default function QuizGame() {
       default: return 'text-white';
     }
   };
+
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes shake {
+        0%, 100% { transform: translateX(0) rotate(0deg); }
+        25% { transform: translateX(-10px) rotate(-5deg); }
+        75% { transform: translateX(10px) rotate(5deg); }
+      }
+      .virus-shake {
+        animation: shake 0.3s ease-in-out;
+      }
+    `;
+    document.head.appendChild(style);
+    const cleanup = () => {
+      document.head.removeChild(style);
+    };
+    return cleanup;
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-900 to-purple-900" style={{ fontFamily: 'Courier New, monospace' }}>
@@ -282,11 +304,7 @@ export default function QuizGame() {
                   <button
                     key={level.id}
                     onClick={() => startLevel(level.id)}
-                    className={`p-4 rounded-2xl border-4 transition-all hover:scale-102 active:translate-y-1 ${
-                      level.id <= 5
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 border-blue-300 hover:from-blue-500 hover:to-purple-500 shadow-[0_4px_0_#3730a3]'
-                        : 'bg-gray-700 border-gray-500 opacity-50 cursor-not-allowed'
-                    }`}
+                    className="p-4 rounded-2xl border-4 bg-gradient-to-r from-blue-600 to-purple-600 border-blue-300 hover:from-blue-500 hover:to-purple-500 shadow-[0_4px_0_#3730a3] transition-all hover:scale-102 active:translate-y-1"
                   >
                     <div className="flex items-center gap-4">
                       <div className="text-5xl">{level.emoji}</div>
@@ -312,7 +330,7 @@ export default function QuizGame() {
           <div className="max-w-3xl mx-auto">
             <div className="bg-gradient-to-b from-sky-600 to-amber-700 rounded-3xl border-8 border-yellow-500 p-6 mb-6 shadow-[0_8px_0_#78350f]">
               <div className="flex justify-between items-center mb-4">
-                <div className={`text-sm font-bold text-yellow-300 bg-black/30 px-3 py-1 rounded-full border-2 border-yellow-400`}>
+                <div className="text-sm font-bold text-yellow-300 bg-black/30 px-3 py-1 rounded-full border-2 border-yellow-400">
                   {currentLevelData.name}
                 </div>
                 <div className={`text-sm font-bold px-3 py-1 rounded-full border-2 ${currentLevelData.difficulty === 'easy' ? 'text-green-300 border-green-400 bg-green-900/30' : currentLevelData.difficulty === 'medium' ? 'text-yellow-300 border-yellow-400 bg-yellow-900/30' : 'text-red-300 border-red-400 bg-red-900/30'}`}>
@@ -341,10 +359,7 @@ export default function QuizGame() {
 
                 <div className={`text-center ${battleAnimation === 'virusAttack' ? 'animate-bounce' : ''}`}>
                   <div
-                    className={`text-7xl mb-2 ${virusShaking ? 'animate-pulse' : ''} ${virusFlickering ? 'opacity-50' : ''}`}
-                    style={{
-                      animation: virusShaking ? 'shake 0.3s ease-in-out infinite' : undefined,
-                    }}
+                    className={`text-7xl mb-2 ${virusShaking ? 'virus-shake' : ''} ${virusFlickering ? 'opacity-50' : ''}`}
                   >
                     {getVirusEmoji()}
                   </div>
@@ -433,14 +448,6 @@ export default function QuizGame() {
                 </div>
               )}
             </div>
-
-            <style>{`
-              @keyframes shake {
-                0%, 100% { transform: translateX(0); }
-                25% { transform: translateX(-10px) rotate(-5deg); }
-                75% { transform: translateX(10px) rotate(5deg); }
-              }
-            `}</style>
           </div>
         )}
 
@@ -493,7 +500,7 @@ export default function QuizGame() {
               </div>
 
               <div className="flex flex-col gap-4">
-                {currentLevel < 5 ? (
+                {currentLevel < 5 && (
                   <>
                     <button
                       onClick={handleNextLevel}
@@ -508,7 +515,7 @@ export default function QuizGame() {
                       📋 选择关卡
                     </button>
                   </>
-                ) : null}
+                )}
                 <button
                   onClick={handleBackToMenu}
                   className="w-full bg-gradient-to-r from-gray-600 to-gray-700 text-white text-xl font-bold py-4 rounded-2xl border-4 border-gray-400 hover:from-gray-500 hover:to-gray-600 active:translate-y-2 transition-all shadow-[0_5px_0_#1f2937]"

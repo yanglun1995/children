@@ -12,7 +12,6 @@ interface GameObject {
   height: number;
   type: 'fruit' | 'obstacle';
   emoji: string;
-  category?: 'bacteria' | 'junk';
 }
 
 interface FloatingText {
@@ -74,27 +73,25 @@ export default function RunGame() {
 
   const spawnObject = useCallback(() => {
     const lane = Math.floor(Math.random() * 3);
-    const isFruit = Math.random() < 0.4;
+    const isFruit = Math.random() < 0.5;
     
-    let emoji, type, category;
+    let emoji, type;
     if (isFruit) {
       emoji = fruits[Math.floor(Math.random() * fruits.length)];
       type = 'fruit';
     } else {
       emoji = junkFood[Math.floor(Math.random() * junkFood.length)];
       type = 'obstacle';
-      category = 'junk';
     }
 
     return {
       id: objectIdRef.current++,
       x: lane * laneWidth + 20,
-      y: -80,
-      width: 80,
-      height: 80,
+      y: -100,
+      width: 70,
+      height: 70,
       type,
-      emoji,
-      category
+      emoji
     };
   }, []);
 
@@ -104,8 +101,8 @@ export default function RunGame() {
       newParticles.push({
         x,
         y,
-        vx: (Math.random() - 0.5) * 10,
-        vy: (Math.random() - 0.5) * 10,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8,
         life: 1,
         emoji
       });
@@ -120,7 +117,7 @@ export default function RunGame() {
       y,
       text,
       life: 1,
-      vy: -2
+      vy: -2.5
     };
   };
 
@@ -137,32 +134,30 @@ export default function RunGame() {
     const dy = touch.clientY - touchStartRef.current.y;
     
     if (Math.abs(dx) > Math.abs(dy)) {
-      // 左右滑动
       if (dx > 50) {
         setPlayerX(prev => Math.min(2, prev + 1));
       } else if (dx < -50) {
         setPlayerX(prev => Math.max(0, prev - 1));
       }
     } else {
-      // 上下滑动
       if (dy < -50 && !isJumping) {
         setIsJumping(true);
         let jumpHeight = 0;
         const jumpUp = setInterval(() => {
-          jumpHeight += 15;
+          jumpHeight += 12;
           setPlayerY(jumpHeight);
-          if (jumpHeight >= 150) {
+          if (jumpHeight >= 120) {
             clearInterval(jumpUp);
             const jumpDown = setInterval(() => {
-              jumpHeight -= 15;
+              jumpHeight -= 12;
               setPlayerY(Math.max(0, jumpHeight));
               if (jumpHeight <= 0) {
                 clearInterval(jumpDown);
                 setIsJumping(false);
               }
-            }, 20);
+            }, 18);
           }
-        }, 20);
+        }, 18);
       }
     }
   };
@@ -179,20 +174,20 @@ export default function RunGame() {
         setIsJumping(true);
         let jumpHeight = 0;
         const jumpUp = setInterval(() => {
-          jumpHeight += 15;
+          jumpHeight += 12;
           setPlayerY(jumpHeight);
-          if (jumpHeight >= 150) {
+          if (jumpHeight >= 120) {
             clearInterval(jumpUp);
             const jumpDown = setInterval(() => {
-              jumpHeight -= 15;
+              jumpHeight -= 12;
               setPlayerY(Math.max(0, jumpHeight));
               if (jumpHeight <= 0) {
                 clearInterval(jumpDown);
                 setIsJumping(false);
               }
-            }, 20);
+            }, 18);
           }
-        }, 20);
+        }, 18);
       }
     };
 
@@ -224,7 +219,6 @@ export default function RunGame() {
       bgOffset4 = (bgOffset4 + speed * 0.4) % 180;
       bgOffset5 = (bgOffset5 + speed * 0.6) % 120;
 
-      // 画地铁隧道背景
       const tunnelGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
       tunnelGradient.addColorStop(0, '#1a1a2e');
       tunnelGradient.addColorStop(0.5, '#16213e');
@@ -232,7 +226,6 @@ export default function RunGame() {
       ctx.fillStyle = tunnelGradient;
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-      // 画星星
       ctx.fillStyle = '#fff';
       for (let i = 0; i < 30; i++) {
         const seed = i * 137.508;
@@ -247,7 +240,6 @@ export default function RunGame() {
       }
       ctx.globalAlpha = 1;
 
-      // 画月亮
       ctx.fillStyle = '#f5f6fa';
       ctx.beginPath();
       ctx.arc(320, 80, 40, 0, Math.PI * 2);
@@ -257,7 +249,6 @@ export default function RunGame() {
       ctx.arc(335, 75, 35, 0, Math.PI * 2);
       ctx.fill();
 
-      // 画飘动的云朵
       ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
       for (let i = 0; i < 5; i++) {
         const cloudX = ((i * 150 + bgOffset2 * 2 + timestamp * 0.02) % (canvasWidth + 200)) - 100;
@@ -270,7 +261,6 @@ export default function RunGame() {
         ctx.fill();
       }
 
-      // 画飞鸟
       ctx.font = '20px Arial';
       for (let i = 0; i < 4; i++) {
         const birdX = ((i * 120 + bgOffset3 * 1.5 + timestamp * 0.05) % (canvasWidth + 100)) - 50;
@@ -280,7 +270,6 @@ export default function RunGame() {
         ctx.fillText('𓅰', birdX + 40, birdY - wingOffset);
       }
 
-      // 画远处城市建筑剪影
       ctx.fillStyle = '#1e3a5f';
       for (let i = -2; i < 15; i++) {
         const x = (i * 60 + bgOffset3) % (canvasWidth + 120) - 60;
@@ -288,13 +277,11 @@ export default function RunGame() {
         ctx.fillRect(x, canvasHeight - 200 - height, 40, height);
       }
 
-      // 画中距离建筑
       ctx.fillStyle = '#253b5c';
       for (let i = -2; i < 12; i++) {
         const x = (i * 80 + bgOffset4) % (canvasWidth + 160) - 80;
         const height = 80 + Math.cos(i * 2) * 40;
         ctx.fillRect(x, canvasHeight - 200 - height, 60, height);
-        // 窗户
         ctx.fillStyle = '#f1c40f';
         for (let wy = canvasHeight - 200 - height + 10; wy < canvasHeight - 210; wy += 20) {
           for (let wx = x + 10; wx < x + 50; wx += 15) {
@@ -306,24 +293,19 @@ export default function RunGame() {
         ctx.fillStyle = '#253b5c';
       }
 
-      // 画路灯
       for (let i = -2; i < 8; i++) {
         const y = (i * 150 + bgOffset5) % (canvasHeight + 150) - 75;
-        // 路灯杆
         ctx.fillStyle = '#7f8c8d';
         ctx.fillRect(25, y, 4, 100);
-        // 路灯灯头
         ctx.fillStyle = '#f39c12';
         ctx.beginPath();
         ctx.arc(27, y, 8, 0, Math.PI * 2);
         ctx.fill();
-        // 灯光效果
         ctx.fillStyle = 'rgba(243, 156, 18, 0.1)';
         ctx.beginPath();
         ctx.arc(27, y, 30, 0, Math.PI * 2);
         ctx.fill();
         
-        // 右侧路灯
         ctx.fillStyle = '#7f8c8d';
         ctx.fillRect(canvasWidth - 29, y, 4, 100);
         ctx.fillStyle = '#f39c12';
@@ -336,22 +318,17 @@ export default function RunGame() {
         ctx.fill();
       }
 
-      // 画树木装饰
+      ctx.font = '40px Arial';
       for (let i = -2; i < 10; i++) {
         const y = (i * 200 + bgOffset4 * 0.7) % (canvasHeight + 200) - 100;
-        // 左侧树木
-        ctx.font = '40px Arial';
         ctx.fillText('🌳', 40, y);
-        // 右侧树木
         ctx.fillText('🌳', canvasWidth - 60, y);
       }
 
-      // 画两侧墙壁
       ctx.fillStyle = '#2d3436';
       ctx.fillRect(0, 0, 20, canvasHeight);
       ctx.fillRect(canvasWidth - 20, 0, 20, canvasHeight);
 
-      // 画轨道
       ctx.strokeStyle = '#636e72';
       ctx.lineWidth = 3;
       for (let i = 1; i < 3; i++) {
@@ -361,7 +338,6 @@ export default function RunGame() {
         ctx.stroke();
       }
 
-      // 画轨道灯光
       ctx.fillStyle = '#e74c3c';
       for (let i = -5; i < 30; i++) {
         const y = (i * 100 + bgOffset2) % (canvasHeight + 100) - 50;
@@ -373,21 +349,18 @@ export default function RunGame() {
         ctx.fill();
       }
 
-      // 画地板
       const floorGradient = ctx.createLinearGradient(0, canvasHeight - 200, 0, canvasHeight);
       floorGradient.addColorStop(0, '#636e72');
       floorGradient.addColorStop(1, '#2d3436');
       ctx.fillStyle = floorGradient;
       ctx.fillRect(0, canvasHeight - 200, canvasWidth, 200);
 
-      // 画地面纹理 - 条纹
       ctx.fillStyle = '#4a5568';
       for (let i = -2; i < 20; i++) {
         const y = canvasHeight - 200 + (i * 40 + bgOffset * 0.8) % 200;
         ctx.fillRect(0, y, canvasWidth, 5);
       }
 
-      // 画地面纹理 - 警示条纹
       ctx.fillStyle = '#e67e22';
       for (let i = -2; i < 8; i++) {
         const y = canvasHeight - 30 + (i * 50 + bgOffset) % 200;
@@ -402,7 +375,6 @@ export default function RunGame() {
         }
       }
 
-      // 画地面纹理 - 小石子
       ctx.fillStyle = '#7f8c8d';
       for (let i = 0; i < 50; i++) {
         const seed = i * 137.508;
@@ -414,7 +386,6 @@ export default function RunGame() {
         ctx.fill();
       }
 
-      // 画地面中央隔离带
       ctx.fillStyle = '#f1c40f';
       for (let i = -2; i < 20; i++) {
         const y = canvasHeight - 100 + (i * 60 + bgOffset * 0.6) % 200;
@@ -422,7 +393,6 @@ export default function RunGame() {
         ctx.fillRect(310, y, 40, 20);
       }
 
-      // 画地板格子
       ctx.strokeStyle = '#444';
       ctx.lineWidth = 1;
       for (let i = -2; i < 20; i++) {
@@ -433,17 +403,17 @@ export default function RunGame() {
         ctx.stroke();
       }
 
-      if (timestamp - lastSpawnRef.current > 800) {
+      if (timestamp - lastSpawnRef.current > 700) {
         setObjects(prev => [...prev, spawnObject()]);
         lastSpawnRef.current = timestamp;
         
         if (speed < 20) {
-          setSpeed(prev => prev + 0.2);
+          setSpeed(prev => prev + 0.15);
         }
       }
 
       const playerScreenX = playerX * laneWidth + 20;
-      const playerScreenY = canvasHeight - 120 - playerY;
+      const playerScreenY = canvasHeight - 130 - playerY;
 
       let hitObstacle = false;
       let collectedFruits = 0;
@@ -453,29 +423,33 @@ export default function RunGame() {
         const newObjects = prev.map(obj => ({
           ...obj,
           y: obj.y + speed
-        })).filter(obj => obj.y < canvasHeight + 100);
+        }));
 
+        const remainingObjects: GameObject[] = [];
+        
         newObjects.forEach(obj => {
-          const dx = Math.abs(playerScreenX + 40 - (obj.x + 40));
-          const dy = Math.abs(playerScreenY + 40 - (obj.y + 40));
+          const dx = Math.abs(playerScreenX + 35 - (obj.x + 35));
+          const dy = Math.abs(playerScreenY + 35 - (obj.y + 35));
           
-          if (dx < 60 && dy < 60) {
+          if (dx < 55 && dy < 55) {
             if (obj.type === 'fruit') {
               collectedFruits++;
-              collectedFruitPositions.push({x: obj.x + 40, y: obj.y + 40});
+              collectedFruitPositions.push({x: obj.x + 35, y: obj.y + 35});
               setParticles(p => [...p, ...createParticles(obj.x, obj.y, obj.emoji)]);
-              obj.y = canvasHeight + 200; // 标记删除
             } else {
               hitObstacle = true;
             }
+          } else if (obj.y < canvasHeight + 100) {
+            remainingObjects.push(obj);
           }
         });
 
-        return newObjects.filter(obj => obj.y < canvasHeight + 100);
+        return remainingObjects;
       });
 
       if (collectedFruits > 0) {
-        setScore(prev => prev + collectedFruits * 10);
+        const newScore = score + collectedFruits * 10;
+        setScore(newScore);
         collectedFruitPositions.forEach(pos => {
           setFloatingTexts(prev => [...prev, createFloatingText(pos.x, pos.y, '+10')]);
         });
@@ -485,6 +459,7 @@ export default function RunGame() {
         setReviveKnowledge(getRandomKnowledge());
         setIsKnowledgeLearned(false);
         setGameState('gameover');
+        return;
       }
 
       setParticles(prev => 
@@ -497,53 +472,51 @@ export default function RunGame() {
       );
 
       setFloatingTexts(prev =>
-        prev.map(t => ({
-          ...t,
-          y: t.y + t.vy,
-          life: t.life - 0.03
-        })).filter(t => t.life > 0)
+        prev.map(ft => ({
+          ...ft,
+          y: ft.y + ft.vy,
+          life: ft.life - 0.015
+        })).filter(ft => ft.life > 0)
       );
 
       objects.forEach(obj => {
-        ctx.font = '60px Arial';
+        ctx.font = '55px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(obj.emoji, obj.x + 40, obj.y + 40);
+        ctx.fillText(obj.emoji, obj.x + 35, obj.y + 35);
       });
 
       particles.forEach(p => {
         ctx.globalAlpha = p.life;
-        ctx.font = '30px Arial';
+        ctx.font = '25px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(p.emoji, p.x, p.y);
         ctx.globalAlpha = 1;
       });
 
-      floatingTexts.forEach(t => {
-        ctx.globalAlpha = t.life;
-        ctx.font = 'bold 36px Arial';
+      floatingTexts.forEach(ft => {
+        ctx.globalAlpha = ft.life;
+        ctx.font = 'bold 24px Arial';
+        ctx.fillStyle = '#FFD700';
+        ctx.strokeStyle = '#DAA520';
+        ctx.lineWidth = 2;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#FFD700';
-        ctx.shadowColor = '#FF6B35';
-        ctx.shadowBlur = 10;
-        ctx.fillText(t.text, t.x, t.y);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#000';
+        ctx.strokeText(ft.text, ft.x, ft.y);
+        ctx.fillText(ft.text, ft.x, ft.y);
         ctx.globalAlpha = 1;
       });
 
-      // 画玩家
+      const playerBounce = Math.sin(timestamp * 0.01) * 2;
       ctx.font = '70px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('🏃', playerScreenX + 40, playerScreenY + 40);
+      ctx.fillText('🏃', playerScreenX + 35, playerScreenY + 35 + playerBounce);
 
-      // 画发光效果
       ctx.shadowColor = '#00ff88';
       ctx.shadowBlur = 20;
-      ctx.fillText('✨', playerScreenX + 40, playerScreenY);
+      ctx.fillText('✨', playerScreenX + 35, playerScreenY);
       ctx.shadowBlur = 0;
 
       animationRef.current = requestAnimationFrame(gameLoop);
@@ -556,7 +529,7 @@ export default function RunGame() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, spawnObject, playerX, playerY, objects, particles, floatingTexts, speed, fruits, junkFood]);
+  }, [gameState, spawnObject, playerX, playerY, objects, particles, floatingTexts, speed, score]);
 
   const handleGameOver = () => {
     addScore(score);
@@ -585,6 +558,7 @@ export default function RunGame() {
     setGameState('playing');
     setObjects([]);
     setParticles([]);
+    setFloatingTexts([]);
     setSpeed(8);
     setPlayerX(1);
     setPlayerY(0);
@@ -598,6 +572,7 @@ export default function RunGame() {
     setScore(0);
     setObjects([]);
     setParticles([]);
+    setFloatingTexts([]);
     setSpeed(8);
     setPlayerX(1);
     setPlayerY(0);
@@ -630,18 +605,22 @@ export default function RunGame() {
         </div>
       </header>
 
-      <div ref={containerRef} className="relative w-full h-[calc(100vh-120px)] flex justify-center items-center bg-gray-900">
+      <div className="p-4">
+        <p className="text-center text-gray-400 mb-2">👈👉 左右滑动换道 | ⬆️ 上滑/空格跳跃</p>
+      </div>
+
+      <div ref={containerRef} className="relative w-full h-[calc(100vh-180px)] flex justify-center items-center bg-gray-900">
         <canvas
           ref={canvasRef}
           width={canvasWidth}
           height={canvasHeight}
-          className="h-full max-w-full shadow-2xl"
+          className="h-full max-w-full shadow-2xl rounded-2xl"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         />
 
         {gameState === 'menu' && (
-          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center rounded-2xl">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-2 border-cyan-500">
               <div className="text-7xl mb-4">🏃</div>
               <h2 className="text-2xl font-bold text-white mb-2">地铁跑酷大作战</h2>
@@ -661,8 +640,8 @@ export default function RunGame() {
                     <span>吃水果得 +10 分</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span>🍺🚬🌶️🍔</span>
-                    <span>碰到不健康的东西游戏结束</span>
+                    <span>🍔🚬</span>
+                    <span>碰到垃圾食品游戏结束</span>
                   </li>
                 </ul>
               </div>
@@ -677,7 +656,7 @@ export default function RunGame() {
         )}
 
         {gameState === 'paused' && (
-          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center rounded-2xl">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-2 border-yellow-500">
               <div className="text-7xl mb-4">⏸️</div>
               <h2 className="text-2xl font-bold text-white mb-6">游戏暂停</h2>
@@ -700,7 +679,7 @@ export default function RunGame() {
         )}
 
         {gameState === 'gameover' && (
-          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center rounded-2xl">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-2 border-red-500">
               <div className="text-7xl mb-4">💥</div>
               <h2 className="text-2xl font-bold text-white mb-2">游戏结束！</h2>

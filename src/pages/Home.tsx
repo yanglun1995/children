@@ -51,6 +51,22 @@ const games = [
     description: '配对健康知识！',
     path: '/game/matching',
   },
+  {
+    id: 'puzzle',
+    name: '健康拼图挑战',
+    icon: '🧩',
+    color: 'from-indigo-400 to-purple-400',
+    description: '拼出健康生活！',
+    path: '/game/puzzle',
+  },
+  {
+    id: 'memory',
+    name: '健康记忆卡牌',
+    icon: '🎴',
+    color: 'from-pink-400 to-rose-400',
+    description: '翻牌配对游戏！',
+    path: '/game/memory',
+  },
 ];
 
 export default function Home() {
@@ -87,7 +103,7 @@ export default function Home() {
           <p className="text-gray-600">选择你喜欢的游戏，开始学习健康知识吧！</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 mb-8">
           {games.map((game) => (
             <Link
               key={game.id}
