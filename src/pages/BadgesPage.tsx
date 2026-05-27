@@ -66,22 +66,27 @@ export default function BadgesPage() {
                 }`}
               >
                 <div className="flex flex-col items-center text-center">
-                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl mb-3 ${
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl mb-3 transition-all ${
                     isUnlocked 
-                      ? 'bg-gradient-to-br from-amber-200 via-yellow-200 to-orange-200 animate-sparkle shadow-lg' 
-                      : 'bg-gray-200'
+                      ? 'bg-gradient-to-br from-amber-200 via-yellow-200 to-orange-200 shadow-lg' 
+                      : 'bg-gray-300/60 grayscale'
                   }`}>
-                    {isUnlocked ? badge.emoji : '🔒'}
+                    {badge.emoji}
+                    {!isUnlocked && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-3xl opacity-70">🔒</span>
+                      </div>
+                    )}
                   </div>
                   <h3 className={`text-lg font-bold ${
-                    isUnlocked ? 'text-amber-700' : 'text-gray-400'
+                    isUnlocked ? 'text-amber-700' : 'text-gray-500'
                   } font-cute`}>
-                    {isUnlocked ? badge.name : '???'}
+                    {badge.name}
                   </h3>
                   <p className={`text-sm mt-1 ${
                     isUnlocked ? 'text-gray-600' : 'text-gray-400'
                   }`}>
-                    {isUnlocked ? badge.desc : '继续探索，解锁更多勋章！'}
+                    {isUnlocked ? badge.desc : '继续探索以解锁！'}
                   </p>
                   {isUnlocked && (
                     <div className="mt-3 text-amber-500 text-xs font-medium">

@@ -58,11 +58,11 @@ const CANVAS_WIDTH = 420;
 const CANVAS_HEIGHT = 520;
 const GROUND_Y = 440;
 const GRAVITY = 0.8;
-const JUMP_FORCE = -16;
-const GAME_SPEED_BASE = 4;
+const JUMP_FORCE = -18;
+const GAME_SPEED_BASE = 3;
 
-const fruits = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉'];
-const obstacles = ['🍔', '🍟', '🍕', '🚬', '🌶️', '🍻', '🍿', '🧁', '🍫'];
+const healthyFoods = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉', '🥦', '🥕', '🥬', '🍅', '🥑'];
+const unhealthyFoods = ['🍔', '🍟', '🍕', '🚬', '🍻', '🍿', '🧁', '🍫', '🍩', '🍪'];
 
 export default function RunGame() {
   const navigate = useNavigate();
@@ -163,72 +163,49 @@ export default function RunGame() {
     const rand = Math.random();
     let obj: GameObject;
     
-    if (rand < 0.22) {
+    if (rand < 0.4) {
       obj = {
         id: objectIdRef.current++,
         x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 45,
         type: 'obstacle',
-        emoji: obstacles[Math.floor(Math.random() * obstacles.length)],
+        emoji: unhealthyFoods[Math.floor(Math.random() * unhealthyFoods.length)],
         width: 45,
         height: 45,
         hit: false,
       };
-    } else if (rand < 0.38) {
-      const hasQuestion = Math.random() > 0.5;
+    } else if (rand < 0.75) {
       obj = {
         id: objectIdRef.current++,
         x: CANVAS_WIDTH + 60,
-        y: GROUND_Y - 90 - Math.random() * 60,
-        type: 'brick',
-        emoji: hasQuestion ? '❓' : '🧱',
-        width: 45,
-        height: 45,
+        y: GROUND_Y - 80 - Math.random() * 120,
+        type: 'fruit',
+        emoji: healthyFoods[Math.floor(Math.random() * healthyFoods.length)],
+        width: 40,
+        height: 40,
         hit: false,
       };
-    } else if (rand < 0.55) {
+    } else if (rand < 0.88) {
       obj = {
         id: objectIdRef.current++,
         x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 130 - Math.random() * 60,
         type: 'coin',
         emoji: '🪙',
-        width: 28,
-        height: 28,
+        width: 30,
+        height: 30,
         hit: false,
         coinPhase: 0,
       };
-    } else if (rand < 0.68) {
-      obj = {
-        id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 60,
-        y: GROUND_Y - 50,
-        type: 'mushroom',
-        emoji: '🍄',
-        width: 40,
-        height: 40,
-        hit: false,
-      };
-    } else if (rand < 0.82) {
-      obj = {
-        id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 60,
-        y: GROUND_Y - 80 - Math.random() * 120,
-        type: 'fruit',
-        emoji: fruits[Math.floor(Math.random() * fruits.length)],
-        width: 38,
-        height: 38,
-        hit: false,
-      };
-    } else if (rand < 0.92) {
+    } else if (rand < 0.96) {
       obj = {
         id: objectIdRef.current++,
         x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 160 - Math.random() * 80,
         type: 'star',
         emoji: '⭐',
-        width: 32,
-        height: 32,
+        width: 35,
+        height: 35,
         hit: false,
       };
     } else {
@@ -238,8 +215,8 @@ export default function RunGame() {
         y: GROUND_Y - 100 - Math.random() * 100,
         type: 'heart',
         emoji: '❤️',
-        width: 30,
-        height: 30,
+        width: 32,
+        height: 32,
         hit: false,
       };
     }
@@ -479,33 +456,6 @@ export default function RunGame() {
             if (!isInvincible) {
               hitObstacle = true;
             }
-          } else if (obj.type === 'brick') {
-            if (playerVy > 0 && py + ph - 15 < oy + oh / 2 && !obj.hit) {
-              obj.hit = true;
-              setPlayerVy(-10);
-              setIsJumping(true);
-              createParticles(obj.x + obj.width / 2, obj.y, '#FFD700', 15);
-              
-              const randItems = Math.floor(Math.random() * 2) + 2;
-              for (let i = 0; i < randItems; i++) {
-                setTimeout(() => {
-                  const itemTypes = ['fruit', 'coin', 'star'];
-                  const itemType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
-                  objectsRef.current.push({
-                    id: objectIdRef.current++,
-                    x: obj.x + i * 20,
-                    y: obj.y,
-                    type: itemType as any,
-                    emoji: itemType === 'fruit' ? fruits[Math.floor(Math.random() * fruits.length)] :
-                           itemType === 'coin' ? '🪙' : '⭐',
-                    width: itemType === 'coin' ? 25 : 30,
-                    height: itemType === 'coin' ? 25 : 30,
-                    hit: false,
-                    vy: -5,
-                  });
-                }, i * 80);
-              }
-            }
           } else if (obj.type === 'fruit') {
             const newScore = score + 15;
             setScore(newScore);
@@ -517,15 +467,6 @@ export default function RunGame() {
             setScore(prev => prev + 8);
             createFloatingText(obj.x, obj.y, '+8');
             createParticles(obj.x + obj.width / 2, obj.y, '#FFD700', 6);
-            return false;
-          } else if (obj.type === 'mushroom') {
-            setIsInvincible(true);
-            createFloatingText(obj.x, obj.y, '✨无敌!');
-            createParticles(obj.x + obj.width / 2, obj.y, '#98FB98', 10);
-            if (invincibleTimerRef.current) clearTimeout(invincibleTimerRef.current);
-            invincibleTimerRef.current = setTimeout(() => {
-              setIsInvincible(false);
-            }, 5000);
             return false;
           } else if (obj.type === 'star') {
             const newScore = score + 30;
@@ -604,19 +545,6 @@ export default function RunGame() {
           ctx.fillText(obj.emoji, obj.x + obj.width / 2, obj.y + obj.height / 2);
         }
         
-        if (obj.type === 'brick' && !obj.hit) {
-          ctx.strokeStyle = '#8B4513';
-          ctx.lineWidth = 3;
-          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
-          ctx.fillStyle = 'rgba(222, 184, 135, 0.7)';
-          ctx.fillRect(obj.x + 2, obj.y + 2, obj.width - 4, obj.height - 4);
-          ctx.font = `${obj.width - 8}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#654321';
-          ctx.fillText(obj.emoji, obj.x + obj.width / 2, obj.y + obj.height / 2);
-        }
-        
         ctx.restore();
       });
 
@@ -653,8 +581,8 @@ export default function RunGame() {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      const sprites = ['🧑‍🦱', '🏃', '🧑‍🦱', '🏃'];
-      ctx.fillText(isDucking ? '🧑‍🦱' : sprites[playerFrameRef.current % 4], 0, 0);
+      const marioSprites = ['🧍', '🏃', '🧍', '🏃'];
+      ctx.fillText(isDucking ? '🧎' : marioSprites[playerFrameRef.current % 4], 0, 0);
       
       if (isJumping) {
         ctx.font = '22px Arial';
@@ -768,36 +696,33 @@ export default function RunGame() {
 
       {gameState === 'menu' && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-green-600 via-green-700 to-emerald-800 rounded-3xl p-8 text-center shadow-2xl max-w-md mx-4 border-4 border-yellow-400">
+          <div className="bg-gradient-to-br from-blue-600 via-red-600 to-purple-700 rounded-3xl p-8 text-center shadow-2xl max-w-md mx-4 border-4 border-yellow-400">
             <div className="text-9xl mb-4 animate-bounce">🍄</div>
-            <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-lg font-cute">超级健康马里奥</h2>
-            <p className="text-emerald-100 mb-6">躲避垃圾食品，收集水果和金币！</p>
+            <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-lg font-cute">🚩 超级马里奥跑酷 🚩</h2>
+            <p className="text-white/90 mb-6">躲避不健康食物，收集健康美食！</p>
             
-            <div className="bg-black/40 rounded-2xl p-5 mb-6 border border-green-500/30">
+            <div className="bg-black/50 rounded-2xl p-5 mb-6 border border-white/20">
               <h3 className="text-lg font-bold text-yellow-300 mb-3 flex items-center justify-center gap-2">
                 <span className="text-xl">🎮</span> 游戏规则
               </h3>
-              <ul className="space-y-2 text-emerald-100 text-sm text-left">
+              <ul className="space-y-2 text-white/90 text-sm text-left">
                 <li className="flex items-center gap-2">
-                  <span>🏃</span> 左右滑动移动，躲避障碍物
+                  <span>⬆️</span> 点击/上滑跳跃躲避障碍
                 </li>
                 <li className="flex items-center gap-2">
-                  <span>⬆️</span> 向上滑动跳跃，踩/顶砖块
+                  <span>⬇️</span> 下蹲缩小体积躲避
                 </li>
                 <li className="flex items-center gap-2">
-                  <span>🧱</span> 顶砖块会掉出奖励物品
+                  <span>🍎</span> 健康食物+15分
                 </li>
                 <li className="flex items-center gap-2">
-                  <span>🍎</span> 水果+15分，金币+8分
+                  <span>🪙</span> 金币+8分
                 </li>
                 <li className="flex items-center gap-2">
-                  <span>⭐</span> 星星+30分，收集稀有奖励
+                  <span>⭐</span> 星星+30分
                 </li>
                 <li className="flex items-center gap-2">
-                  <span>🍄</span> 蘑菇=5秒无敌时间
-                </li>
-                <li className="flex items-center gap-2">
-                  <span>❤️</span> 爱心+1生命，最多5条命
+                  <span>❤️</span> 爱心+1生命
                 </li>
                 <li className="flex items-center gap-2">
                   <span>🍔</span> 碰到垃圾食品扣血

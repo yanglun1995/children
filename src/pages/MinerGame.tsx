@@ -14,8 +14,8 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 };
 
 const TIME_LIMIT = 15;
-const HOOK_EXTEND_DURATION = 600;
-const HOOK_RETRACT_DURATION = 500;
+const HOOK_EXTEND_DURATION = 500;
+const HOOK_RETRACT_DURATION = 400;
 
 const gemEmojis = ['💎', '🥇', '💠', '🔮', '⭐', '💰'];
 
@@ -91,8 +91,8 @@ export default function MinerGame() {
 
     const swingHook = () => {
       const startTime = Date.now();
-      const swingDuration = 4000;
-      const maxAngle = 70;
+      const swingDuration = 2500;
+      const maxAngle = 85;
 
       const animate = () => {
         const elapsed = Date.now() - startTime;
@@ -148,15 +148,16 @@ export default function MinerGame() {
     setIsHookExtended(true);
     
     const startTime = Date.now();
+    const totalLength = 450;
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / HOOK_EXTEND_DURATION, 1);
       const easeProgress = 1 - Math.pow(1 - progress, 3);
       
-      setHookLength(300 * easeProgress);
+      setHookLength(totalLength * easeProgress);
       
       if (progress >= 1) {
-        determineHit();
+        setTimeout(() => determineHit(), 150);
         return;
       }
       
