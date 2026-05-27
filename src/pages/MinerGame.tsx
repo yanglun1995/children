@@ -333,21 +333,32 @@ export default function MinerGame() {
             <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-green-700 to-transparent" />
 
             <div
-              className="absolute top-1 left-1/2 flex flex-col items-center transition-all duration-300 ease-in-out"
+              className="absolute left-1/2 flex flex-col items-center"
               style={{
                 transform: `rotate(${hookAngle}deg)`,
                 transformOrigin: 'top center',
+                top: '-10px',
               }}
             >
               <div 
-                className="w-2.5 bg-gradient-to-b from-amber-600 via-amber-700 to-amber-800 rounded-full shadow-md transition-all duration-300"
-                style={{ height: `${40 + hookLength}px` }}
-              />
-              <div className={`text-2xl mt-1 transition-transform duration-200 ${
-                isHookExtended ? 'scale-130' : ''
-              }`}>
-                ⛓️
+                className="w-3 bg-gradient-to-b from-gray-300 via-gray-400 to-gray-500 rounded-full shadow-lg relative"
+                style={{ 
+                  height: `${50 + hookLength}px`,
+                  transition: 'height 0.1s ease-out',
+                }}
+              >
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-b from-white/50 to-transparent rounded-t-full" />
               </div>
+              <div className={`text-3xl transition-transform duration-200 ${
+                isHookExtended ? 'scale-110' : ''
+              }`}>
+                ⛏️
+              </div>
+              {isHookExtended && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full shadow-lg animate-pulse">
+                  <div className="absolute inset-1 bg-white/30 rounded-full" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -379,13 +390,13 @@ export default function MinerGame() {
             <div className="relative z-10 mt-2 px-2 pb-4" style={{ height: '65%' }}>
               {optionPositions.map((pos) => {
                 const gemEmoji = gemEmojis[gemIndices[pos.index] ?? 0];
-                let optionStyle = 'bg-gradient-to-br from-amber-600/85 via-yellow-700/85 to-amber-800/85 border-amber-500/50';
+                let optionStyle = 'bg-gradient-to-br from-amber-700 via-yellow-700 to-amber-800 border-2 border-amber-500';
 
                 if (selectedAnswer !== null) {
                   if (pos.index === currentQuestion.correctAnswer) {
-                    optionStyle = 'bg-gradient-to-br from-green-500/85 to-emerald-600/85 border-green-400/80';
+                    optionStyle = 'bg-gradient-to-br from-green-500 to-emerald-600 border-2 border-green-400';
                   } else if (pos.index === selectedAnswer && !isCorrect) {
-                    optionStyle = 'bg-gradient-to-br from-red-500/85 to-rose-600/85 border-red-400/80';
+                    optionStyle = 'bg-gradient-to-br from-red-500 to-rose-600 border-2 border-red-400';
                   }
                 }
 
@@ -396,32 +407,32 @@ export default function MinerGame() {
                     key={pos.index}
                     onClick={(e) => e.stopPropagation()}
                     disabled={selectedAnswer !== null}
-                    className={`absolute rounded-lg border-2 p-2 transition-all duration-300 ${
+                    className={`absolute rounded-xl border-2 p-3 transition-all duration-300 shadow-lg ${
                       optionStyle
                     } ${
-                      isGrabbed ? 'scale-110 shadow-2xl' : 'shadow-md'
+                      isGrabbed ? 'scale-125 shadow-2xl z-30' : 'shadow-md'
                     } ${
-                      selectedAnswer !== null ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-105'
+                      selectedAnswer !== null ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'
                     }`}
                     style={{
                       left: `${pos.x}%`,
                       top: `${pos.y}%`,
                       transform: 'translate(-50%, -50%)',
-                      minWidth: '70px',
-                      maxWidth: '90px',
+                      minWidth: '80px',
+                      maxWidth: '100px',
                     }}
                   >
                     <div className="relative">
-                      <span className="text-2xl">{gemEmoji}</span>
+                      <span className="text-3xl block text-center mb-1">{gemEmoji}</span>
                     </div>
-                    <span className="text-white text-[10px] font-bold text-center leading-tight line-clamp-2">
+                    <span className="text-white text-xs font-bold text-center leading-tight line-clamp-2 block">
                       {currentQuestion.options[pos.index]}
                     </span>
                     {selectedAnswer !== null && pos.index === currentQuestion.correctAnswer && (
-                      <div className="absolute -top-1 -right-1 text-lg">✅</div>
+                      <div className="absolute -top-2 -right-2 text-xl animate-bounce">✅</div>
                     )}
                     {selectedAnswer === pos.index && !isCorrect && (
-                      <div className="absolute -top-1 -right-1 text-lg">❌</div>
+                      <div className="absolute -top-2 -right-2 text-xl animate-shake">❌</div>
                     )}
                   </button>
                 );

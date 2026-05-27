@@ -569,27 +569,33 @@ export default function RunGame() {
         ctx.globalAlpha = 1;
       });
 
+      const frameCount = Math.floor(time / 150);
+      
       ctx.save();
-      ctx.translate(playerX + 25, playerY + (isDucking ? 35 : 25));
+      
+      const playerYPos = playerY;
+      const playerHeight = isDucking ? 35 : 50;
+      const playerWidth = isDucking ? 30 : 30;
+      
+      ctx.translate(playerX + 15, playerYPos + playerHeight / 2);
       ctx.scale(playerDir, 1);
       
-      if (isInvincible) {
-        ctx.globalAlpha = 0.4 + Math.sin(time * 0.015) * 0.4;
+      if (isInvincible && Math.floor(time / 100) % 2 === 0) {
+        ctx.globalAlpha = 0.3;
       }
       
-      ctx.font = isDucking ? '35px Arial' : '50px Arial';
+      ctx.font = isDucking ? '28px Arial' : '45px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      const marioSprites = ['🧍', '🏃', '🧍', '🏃'];
-      ctx.fillText(isDucking ? '🧎' : marioSprites[playerFrameRef.current % 4], 0, 0);
+      const marioEmoji = isDucking ? '🧎' : '🏃';
+      ctx.fillText(marioEmoji, 0, 0);
       
-      if (isJumping) {
-        ctx.font = '22px Arial';
-        ctx.fillText('💨', -22, 8);
-      } else if (isRunning) {
+      if (!isDucking) {
         ctx.font = '18px Arial';
-        ctx.fillText('💨', -18, 5);
+        if (isJumping) {
+          ctx.fillText('💨', -20, 5);
+        }
       }
       
       ctx.restore();

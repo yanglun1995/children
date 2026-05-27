@@ -66,15 +66,20 @@ export default function BadgesPage() {
                 }`}
               >
                 <div className="flex flex-col items-center text-center">
-                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl mb-3 transition-all ${
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl mb-3 transition-all relative ${
                     isUnlocked 
                       ? 'bg-gradient-to-br from-amber-200 via-yellow-200 to-orange-200 shadow-lg' 
-                      : 'bg-gray-300/60 grayscale'
+                      : 'bg-gray-200'
                   }`}>
                     {badge.emoji}
                     {!isUnlocked && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-3xl opacity-70">🔒</span>
+                      <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center shadow-md border-2 border-white">
+                        <span className="text-sm">🔒</span>
+                      </div>
+                    )}
+                    {isUnlocked && (
+                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-sm">
+                        <span className="text-white text-xs">✓</span>
                       </div>
                     )}
                   </div>
