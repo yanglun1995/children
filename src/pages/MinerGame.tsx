@@ -14,10 +14,16 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 };
 
 const TIME_LIMIT = 15;
-const HOOK_EXTEND_DURATION = 500;
-const HOOK_RETRACT_DURATION = 400;
+const HOOK_EXTEND_DURATION = 600;
+const HOOK_RETRACT_DURATION = 500;
 
-const gemEmojis = ['💎', '🥇', '💠', '🔮', '⭐', '💰'];
+const gemEmojis = ['💎', '🥇', '💠', '🔮', '⭐', '💰', '💚', '💙'];
+
+interface OptionPosition {
+  index: number;
+  x: number;
+  y: number;
+}
 
 export default function MinerGame() {
   const navigate = useNavigate();
@@ -37,6 +43,7 @@ export default function MinerGame() {
   const [correctCount, setCorrectCount] = useState(0);
   const [gemIndices, setGemIndices] = useState<number[]>([]);
   const [scorePopups, setScorePopups] = useState<{id: number; x: number; y: number}[]>([]);
+  const [optionPositions, setOptionPositions] = useState<OptionPosition[]>([]);
   
   const animationRef = useRef<number>();
   const timerRef = useRef<NodeJS.Timeout>();
@@ -52,6 +59,16 @@ export default function MinerGame() {
     return Array.from({ length: 4 }, () => Math.floor(Math.random() * gemEmojis.length));
   };
 
+  const generateOptionPositions = () => {
+    const positions: OptionPosition[] = [
+      { index: 0, x: 15 + Math.random() * 20, y: 35 + Math.random() * 15 },
+      { index: 1, x: 60 + Math.random() * 20, y: 45 + Math.random() * 15 },
+      { index: 2, x: 25 + Math.random() * 20, y: 65 + Math.random() * 15 },
+      { index: 3, x: 55 + Math.random() * 20, y: 55 + Math.random() * 15 },
+    ];
+    return positions;
+  };
+
   const startGame = useCallback(() => {
     setScore(0);
     setCorrectCount(0);
@@ -65,6 +82,7 @@ export default function MinerGame() {
     setIsHookRetracting(false);
     setGrabTarget(null);
     setGemIndices(generateGemIndices());
+    setOptionPositions(generateOptionPositions());
     setScorePopups([]);
   }, [getRandomQuestion]);
 
@@ -73,8 +91,8 @@ export default function MinerGame() {
 
     const swingHook = () => {
       const startTime = Date.now();
-      const swingDuration = 3000;
-      const maxAngle = 35;
+      const swingDuration = 4500;
+      const maxAngle = 55;
 
       const animate = () => {
         const elapsed = Date.now() - startTime;
@@ -128,7 +146,7 @@ export default function MinerGame() {
     if (isHookExtended || isHookRetracting || selectedAnswer !== null) return;
 
     setIsHookExtended(true);
-    setHookLength(280);
+    setHookLength(260);
 
     const startTime = Date.now();
     const animate = () => {
@@ -150,14 +168,14 @@ export default function MinerGame() {
     const angle = hookAngle;
     let targetIndex = 0;
     
-    if (angle < -15) {
+    if (angle < -30) {
       targetIndex = 0;
     } else if (angle < 0) {
-      targetIndex = 1;
-    } else if (angle < 15) {
       targetIndex = 2;
-    } else {
+    } else if (angle < 30) {
       targetIndex = 3;
+    } else {
+      targetIndex = 1;
     }
 
     setGrabTarget(targetIndex);
@@ -171,7 +189,10 @@ export default function MinerGame() {
       setScore(newScore);
 
       const popupId = scorePopupIdRef.current++;
-      setScorePopups(prev => [...prev, { id: popupId, x: targetIndex % 2 === 0 ? 30 : 70, y: 60 }]);
+      const targetPos = optionPositions.find(p => p.index === targetIndex);
+      if (targetPos) {
+        setScorePopups(prev => [...prev, { id: popupId, x: targetPos.x, y: targetPos.y }]);
+      }
       setTimeout(() => {
         setScorePopups(prev => prev.filter(p => p.id !== popupId));
       }, 1200);
@@ -190,6 +211,7 @@ export default function MinerGame() {
           setCurrentQuestion(getRandomQuestion());
           setCorrectCount(prev => prev + 1);
           setGemIndices(generateGemIndices());
+          setOptionPositions(generateOptionPositions());
         }, HOOK_RETRACT_DURATION);
       }, 600);
     } else {
@@ -197,7 +219,7 @@ export default function MinerGame() {
         handleTimeout();
       }, 800);
     }
-  }, [hookAngle, currentQuestion, score, getRandomQuestion]);
+  }, [hookAngle, currentQuestion, score, optionPositions, getRandomQuestion]);
 
   return (
     <div 
@@ -264,46 +286,49 @@ export default function MinerGame() {
 
       {gameState === 'playing' && currentQuestion && (
         <div className="absolute inset-0 top-14 flex flex-col">
-          <div className="relative h-[28%] min-h-[140px] bg-gradient-to-b from-sky-400 via-sky-300 to-green-400">
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-b from-green-500 to-green-700">
+          <div className="relative h-[25%] min-h-[120px] bg-gradient-to-b from-sky-400 via-sky-300 to-green-400">
+            <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-b from-green-500 to-green-700">
               <div className="absolute inset-0" style={{
-                backgroundImage: 'radial-gradient(circle, #4ade80 1px, transparent 1px)',
-                backgroundSize: '12px 12px',
-                opacity: 0.4,
+                backgroundImage: 'radial-gradient(circle, #4ade80 2px, transparent 2px)',
+                backgroundSize: '14px 14px',
+                opacity: 0.5,
               }} />
             </div>
-            <div className="absolute bottom-6 left-0 right-0 flex justify-around text-2xl opacity-60">
+            <div className="absolute bottom-4 left-0 right-0 flex justify-around text-xl opacity-50">
               <span>🌿</span><span>🌱</span><span>🌿</span><span>🌱</span><span>🌿</span>
               <span>🌱</span><span>🌿</span><span>🌱</span><span>🌿</span><span>🌱</span>
             </div>
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center">
-              <div className="text-5xl" style={{ filter: 'drop-shadow(0 4px 4px rgba(0,0,0,0.3))' }}>🧑‍🏭</div>
-              <div className="text-xs font-bold text-white bg-amber-700 px-2 py-0.5 rounded-full mt-0.5 whitespace-nowrap">
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center">
+              <div className="text-4xl" style={{ filter: 'drop-shadow(0 4px 4px rgba(0,0,0,0.3))' }}>🧑‍🏭</div>
+              <div className="text-xs font-bold text-white bg-amber-700/80 px-2 py-0.5 rounded-full mt-0.5 whitespace-nowrap">
                 矿工
               </div>
             </div>
+            
+            <div className="absolute top-4 left-4 text-lg">☁️</div>
+            <div className="absolute top-6 right-8 text-lg">☁️</div>
           </div>
 
-          <div className="relative h-[12%] min-h-[60px] bg-gradient-to-b from-green-700 via-amber-900 to-amber-950">
-            <div className="absolute inset-0 opacity-30" style={{
-              backgroundImage: 'radial-gradient(circle, #92400e 2px, transparent 2px)',
-              backgroundSize: '16px 16px',
+          <div className="relative h-[15%] min-h-[75px] bg-gradient-to-b from-green-700 via-amber-900 to-amber-950">
+            <div className="absolute inset-0 opacity-40" style={{
+              backgroundImage: 'radial-gradient(circle, #92400e 3px, transparent 3px)',
+              backgroundSize: '18px 18px',
             }} />
-            <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-b from-green-700 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-green-700 to-transparent" />
 
             <div
-              className="absolute top-2 left-1/2 flex flex-col items-center transition-all duration-300 ease-in-out"
+              className="absolute top-1 left-1/2 flex flex-col items-center transition-all duration-300 ease-in-out"
               style={{
                 transform: `rotate(${hookAngle}deg)`,
                 transformOrigin: 'top center',
               }}
             >
               <div 
-                className="w-2 bg-gradient-to-b from-amber-600 to-amber-800 rounded-full shadow-md transition-all duration-300"
-                style={{ height: `${36 + hookLength}px` }}
+                className="w-2.5 bg-gradient-to-b from-amber-600 via-amber-700 to-amber-800 rounded-full shadow-md transition-all duration-300"
+                style={{ height: `${40 + hookLength}px` }}
               />
-              <div className={`text-2xl mt-0.5 transition-transform duration-200 ${
-                isHookExtended ? 'scale-125' : ''
+              <div className={`text-2xl mt-1 transition-transform duration-200 ${
+                isHookExtended ? 'scale-130' : ''
               }`}>
                 ⛓️
               </div>
@@ -311,19 +336,19 @@ export default function MinerGame() {
           </div>
 
           <div className="flex-1 bg-gradient-to-b from-amber-950 via-amber-900 to-yellow-950 relative overflow-hidden">
-            <div className="absolute inset-0 opacity-20" style={{
-              backgroundImage: 'radial-gradient(circle, #78350f 3px, transparent 3px)',
-              backgroundSize: '20px 20px',
+            <div className="absolute inset-0 opacity-25" style={{
+              backgroundImage: 'radial-gradient(circle, #78350f 4px, transparent 4px)',
+              backgroundSize: '22px 22px',
             }} />
-            <div className="absolute top-4 left-0 right-0 h-px bg-amber-800/30" />
-            <div className="absolute top-10 left-0 right-0 h-px bg-amber-800/20" />
+            
+            <div className="absolute top-4 left-[15%] text-2xl opacity-20">🪨</div>
+            <div className="absolute top-8 right-[10%] text-xl opacity-15">🪨</div>
+            <div className="absolute bottom-16 left-[8%] text-xl opacity-15">🪨</div>
+            <div className="absolute bottom-8 right-[20%] text-2xl opacity-20">🪨</div>
+            <div className="absolute top-16 right-[25%] text-lg opacity-15">💎</div>
+            <div className="absolute bottom-24 left-[60%] text-lg opacity-15">💎</div>
 
-            <div className="absolute top-6 left-[20%] text-xl opacity-25">🪨</div>
-            <div className="absolute top-4 right-[15%] text-lg opacity-20">🪨</div>
-            <div className="absolute bottom-20 left-[10%] text-lg opacity-15">🪨</div>
-            <div className="absolute bottom-10 right-[25%] text-xl opacity-20">🪨</div>
-
-            <div className="relative z-10 mx-4 mt-2 mb-2">
+            <div className="relative z-10 mx-4 mt-3">
               <div className="bg-gradient-to-r from-amber-800/90 via-yellow-800/90 to-amber-800/90 rounded-xl px-4 py-3 border-2 border-yellow-600/50 shadow-lg">
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="w-4 h-4 text-yellow-400" />
@@ -335,46 +360,51 @@ export default function MinerGame() {
               </div>
             </div>
 
-            <div className="relative z-10 mx-3 mt-1 grid grid-cols-2 gap-3 px-1 pb-4">
-              {currentQuestion.options.map((option, index) => {
-                const gemEmoji = gemEmojis[gemIndices[index] ?? 0];
-                let optionStyle = 'bg-gradient-to-br from-amber-600/90 via-yellow-700/90 to-amber-800/90 border-amber-500/60';
+            <div className="relative z-10 mt-2 px-2 pb-4" style={{ height: '65%' }}>
+              {optionPositions.map((pos) => {
+                const gemEmoji = gemEmojis[gemIndices[pos.index] ?? 0];
+                let optionStyle = 'bg-gradient-to-br from-amber-600/85 via-yellow-700/85 to-amber-800/85 border-amber-500/50';
 
                 if (selectedAnswer !== null) {
-                  if (index === currentQuestion.correctAnswer) {
-                    optionStyle = 'bg-gradient-to-br from-green-500/90 to-emerald-600/90 border-green-400/80';
-                  } else if (index === selectedAnswer && !isCorrect) {
-                    optionStyle = 'bg-gradient-to-br from-red-500/90 to-rose-600/90 border-red-400/80';
+                  if (pos.index === currentQuestion.correctAnswer) {
+                    optionStyle = 'bg-gradient-to-br from-green-500/85 to-emerald-600/85 border-green-400/80';
+                  } else if (pos.index === selectedAnswer && !isCorrect) {
+                    optionStyle = 'bg-gradient-to-br from-red-500/85 to-rose-600/85 border-red-400/80';
                   }
                 }
 
-                const isGrabbed = selectedAnswer !== null && index === selectedAnswer;
+                const isGrabbed = selectedAnswer !== null && pos.index === selectedAnswer;
 
                 return (
                   <button
-                    key={index}
+                    key={pos.index}
                     onClick={(e) => e.stopPropagation()}
                     disabled={selectedAnswer !== null}
-                    className={`relative rounded-xl border-2 p-3 transition-all duration-300 flex flex-col items-center gap-1 overflow-hidden ${
+                    className={`absolute rounded-lg border-2 p-2 transition-all duration-300 ${
                       optionStyle
                     } ${
-                      isGrabbed ? 'scale-105 shadow-2xl' : 'shadow-lg'
+                      isGrabbed ? 'scale-110 shadow-2xl' : 'shadow-md'
                     } ${
-                      selectedAnswer !== null ? 'cursor-not-allowed' : 'cursor-pointer'
+                      selectedAnswer !== null ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-105'
                     }`}
+                    style={{
+                      left: `${pos.x}%`,
+                      top: `${pos.y}%`,
+                      transform: 'translate(-50%, -50%)',
+                      minWidth: '70px',
+                      maxWidth: '90px',
+                    }}
                   >
                     <div className="relative">
-                      <span className="text-3xl">{gemEmoji}</span>
+                      <span className="text-2xl">{gemEmoji}</span>
                     </div>
-                    <span className="text-white text-xs font-bold text-center leading-tight line-clamp-2">
-                      {option}
+                    <span className="text-white text-[10px] font-bold text-center leading-tight line-clamp-2">
+                      {currentQuestion.options[pos.index]}
                     </span>
-                    <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-amber-950/40 to-transparent pointer-events-none" />
-
-                    {selectedAnswer !== null && index === currentQuestion.correctAnswer && (
+                    {selectedAnswer !== null && pos.index === currentQuestion.correctAnswer && (
                       <div className="absolute -top-1 -right-1 text-lg">✅</div>
                     )}
-                    {selectedAnswer === index && !isCorrect && (
+                    {selectedAnswer === pos.index && !isCorrect && (
                       <div className="absolute -top-1 -right-1 text-lg">❌</div>
                     )}
                   </button>
@@ -385,7 +415,7 @@ export default function MinerGame() {
             {scorePopups.map(popup => (
               <div
                 key={popup.id}
-                className="absolute z-20 text-2xl font-bold text-yellow-300 pointer-events-none"
+                className="absolute z-20 text-xl font-bold text-yellow-300 pointer-events-none"
                 style={{
                   left: `${popup.x}%`,
                   top: `${popup.y}%`,
@@ -398,7 +428,7 @@ export default function MinerGame() {
             ))}
 
             {selectedAnswer !== null && isCorrect && (
-              <div className="relative z-10 mx-4 mb-2 bg-green-900/80 rounded-xl p-3 border border-green-500/50">
+              <div className="relative z-10 mx-4 mb-2 bg-green-900/70 rounded-xl p-3 border border-green-500/50">
                 <p className="text-green-300 text-xs">{currentQuestion.explanation}</p>
               </div>
             )}
@@ -452,7 +482,7 @@ export default function MinerGame() {
       <style>{`
         @keyframes scoreFloat {
           0% { opacity: 1; transform: translateY(0) scale(1); }
-          100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+          100% { opacity: 0; transform: translateY(-50px) scale(1.3); }
         }
       `}</style>
     </div>
