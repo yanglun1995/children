@@ -274,7 +274,7 @@ const ALL_CARDS: KnowledgeCard[] = [
   },
   {
     id: 'l3', emoji: '📱', title: '电子产品使用规范',
-    content: '合理使用电子产品，保护健康！\n\n使用规范：\n1. 每天使用不超过1小时\n2. 眼睛距离屏幕50-60厘米\n3. 保持正确坐姿，不要躺着看\n4. 光线要充足，避免反光\n5. 每20分钟休息一下\n\n睡前1小时不要玩手机\/平板，蓝光会抑制褪黑素分泌，影响睡眠。\n\n多玩户外游戏，比玩电子产品更有趣！',
+    content: '合理使用电子产品，保护健康！\n\n使用规范：\n1. 每天使用不超过1小时\n2. 眼睛距离屏幕50-60厘米\n3. 保持正确坐姿，不要躺着看\n4. 光线要充足，避免反光\n5. 每20分钟休息一下\n\n睡前1小时不要玩手机/平板，蓝光会抑制褪黑素分泌，影响睡眠。\n\n多玩户外游戏，比玩电子产品更有趣！',
     category: 'habit', categoryLabel: '📝 生活习惯', unlocked: false,
   },
   {
@@ -314,11 +314,21 @@ const CATEGORIES = [
   { key: 'habit', label: '📝 生活习惯', color: 'from-teal-400 to-cyan-400' },
 ];
 
+const STARS = Array.from({ length: 12 }, (_, i) => ({
+  id: i,
+  left: Math.random() * 100,
+  top: Math.random() * 100,
+  size: Math.random() * 12 + 8,
+  delay: Math.random() * 3,
+  duration: Math.random() * 3 + 3,
+}));
+
 export default function Encyclopedia() {
   const navigate = useNavigate();
   const { user, addKnowledgeCard } = useGameStore();
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedCard, setSelectedCard] = useState<KnowledgeCard | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
     DEFAULT_UNLOCKED_IDS.forEach((id) => {
@@ -368,50 +378,77 @@ export default function Encyclopedia() {
     return counts;
   }, [user.knowledgeCards]);
 
+  useEffect(() => {
+    if (progressPercent === 100) {
+      setShowCelebration(true);
+      const timer = setTimeout(() => setShowCelebration(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [progressPercent]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
-      <header className="bg-white/80 backdrop-blur-md shadow-lg border-b border-white/20 sticky top-0 z-40">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-yellow-50 via-pink-50 to-blue-50">
+      {STARS.map((star) => (
+        <div
+          key={star.id}
+          className="absolute pointer-events-none text-yellow-300/30 animate-float-star"
+          style={{
+            left: `${star.left}%`,
+            top: `${star.top}%`,
+            fontSize: `${star.size}px`,
+            animationDelay: `${star.delay}s`,
+            animationDuration: `${star.duration}s`,
+          }}
+        >
+          ✨
+        </div>
+      ))}
+
+      <header className="bg-white/70 backdrop-blur-md shadow-lg border-b border-white/50 sticky top-0 z-40">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
-            className="w-10 h-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm"
+            className="w-10 h-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm border border-gray-200/50"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600">
+          <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-pink-500 to-purple-500">
             📚 知识集卡册
           </h1>
           <div className="w-10" />
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 max-w-5xl">
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg mb-6 border border-white/50">
+      <main className="container mx-auto px-4 py-6 max-w-5xl relative z-10">
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg mb-6 border border-white/60">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-gray-800">
               收集进度
             </h2>
-            <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-orange-500">
+            <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500">
               {unlockedCount}
               <span className="text-gray-400 text-lg"> / {totalCount}</span>
             </span>
           </div>
-          <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+          <div className="w-full h-5 bg-gray-200/70 rounded-full overflow-hidden shadow-inner">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 transition-all duration-1000 ease-out relative"
+              className="h-full rounded-full bg-gradient-to-r from-pink-400 via-amber-400 to-green-400 transition-all duration-1000 ease-out relative"
               style={{ width: `${progressPercent}%` }}
             >
-              <div className="absolute inset-0 bg-white/20 rounded-full animate-pulse" />
+              <div className="absolute inset-0 bg-white/30 rounded-full animate-pulse" />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 -mr-1 text-sm">
+                {progressPercent >= 30 && '🌟'}
+              </div>
             </div>
           </div>
           <p className="text-sm text-gray-500 mt-2 text-center">
             {progressPercent < 30
-              ? '继续加油，收集更多知识卡片吧！'
+              ? '🌟 继续加油，收集更多知识卡片吧！'
               : progressPercent < 60
-              ? '不错哦，已经集齐了一大半！'
-              : progressPercent < 90
-              ? '太棒了，马上就要集齐了！'
-              : '🎉 恭喜你集齐了所有知识卡片！'}
+              ? '🎉 不错哦，已经集齐了一大半！'
+              : progressPercent < 100
+              ? '🏆 太棒了，马上就要集齐了！'
+              : '🎊🎊 恭喜你集齐了所有知识卡片！你是健康小达人！🎊🎊'}
           </p>
         </div>
 
@@ -425,10 +462,10 @@ export default function Encyclopedia() {
               <button
                 key={cat.key}
                 onClick={() => setActiveCategory(cat.key)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full font-medium text-sm transition-all duration-300 ${
+                className={`flex-shrink-0 px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 ${
                   isActive
-                    ? `bg-gradient-to-r ${cat.color} text-white shadow-lg scale-105`
-                    : 'bg-white/70 text-gray-600 hover:bg-white shadow-sm border border-gray-200/50'
+                    ? `bg-gradient-to-r ${cat.color} text-white shadow-lg scale-105 shadow-md`
+                    : 'bg-white/80 text-gray-600 hover:bg-white hover:shadow-md shadow-sm border border-gray-200/60 hover:scale-102'
                 }`}
               >
                 <span className="whitespace-nowrap">
@@ -446,45 +483,44 @@ export default function Encyclopedia() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {filteredCards.map((card) => (
-            <div
-              key={card.id}
-              className="group perspective h-48 sm:h-52 cursor-pointer"
-              onClick={() => card.unlocked && setSelectedCard(card)}
-            >
+            card.unlocked ? (
               <div
-                className={`relative w-full h-full transition-transform duration-700 preserve-3d ${
-                  card.unlocked ? 'rotate-y-0' : 'rotate-y-180'
-                }`}
+                key={card.id}
+                className="relative h-44 sm:h-48 cursor-pointer group"
+                onClick={() => setSelectedCard(card)}
               >
-                <div className="absolute inset-0 backface-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl border-2 border-amber-300 shadow-lg p-3 flex flex-col items-center justify-center text-center overflow-hidden group-hover:shadow-xl group-hover:scale-[1.02] transition-all duration-300">
-                    <div className="text-4xl mb-2">{card.emoji}</div>
-                    <h3 className="font-bold text-sm text-gray-800 leading-tight mb-1 line-clamp-2">
-                      {card.title}
-                    </h3>
-                    <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-                      {card.categoryLabel.split(' ')[1]}
-                    </span>
-                    <div className="absolute top-2 right-2">
-                      <CheckCircle className="w-4 h-4 text-amber-400" />
-                    </div>
+                <div className="w-full h-full bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl border-2 border-amber-300 shadow-lg p-4 flex flex-col items-center justify-center text-center overflow-hidden group-hover:shadow-xl group-hover:scale-[1.03] transition-all duration-300 relative card-sparkle">
+                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-amber-400 rounded-full flex items-center justify-center shadow-sm">
+                    <CheckCircle className="w-3.5 h-3.5 text-white" />
                   </div>
+                  <div className="text-4xl mb-2 group-hover:animate-bounce-subtle">{card.emoji}</div>
+                  <h3 className="font-bold text-sm text-gray-800 leading-tight mb-1.5 line-clamp-2">
+                    {card.title}
+                  </h3>
+                  <span className="inline-block text-[10px] px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium border border-amber-200">
+                    {card.categoryLabel.split(' ')[1] || card.categoryLabel}
+                  </span>
                 </div>
-
-                <div className="absolute inset-0 backface-hidden rotate-y-180">
-                  <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl border-2 border-gray-300 shadow-lg p-3 flex flex-col items-center justify-center text-center overflow-hidden">
-                    <div className="w-12 h-12 rounded-full bg-gray-400/50 flex items-center justify-center mb-3">
-                      <Lock className="w-6 h-6 text-gray-500" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-400 mb-1">?</div>
-                    <p className="text-xs text-gray-500 font-medium">未收集</p>
-                    <p className="text-[10px] text-gray-400 mt-1 px-2">
-                      完成游戏解锁此卡
-                    </p>
+              </div>
+            ) : (
+              <div
+                key={card.id}
+                className="relative h-44 sm:h-48"
+              >
+                <div className="w-full h-full bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-4 flex flex-col items-center justify-center text-center overflow-hidden">
+                  <div className="text-4xl mb-2 opacity-40 grayscale">{card.emoji}</div>
+                  <h3 className="font-bold text-sm text-gray-400 leading-tight mb-1.5 line-clamp-2">
+                    {card.title}
+                  </h3>
+                  <span className="inline-block text-[10px] px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium border border-gray-200">
+                    {card.categoryLabel.split(' ')[1] || card.categoryLabel}
+                  </span>
+                  <div className="absolute bottom-2 right-2 text-gray-300">
+                    <Lock className="w-3.5 h-3.5" />
                   </div>
                 </div>
               </div>
-            </div>
+            )
           ))}
         </div>
 
@@ -498,7 +534,7 @@ export default function Encyclopedia() {
 
       {selectedCard && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
           onClick={() => setSelectedCard(null)}
         >
           <div
@@ -543,23 +579,31 @@ export default function Encyclopedia() {
         </div>
       )}
 
+      {showCelebration && (
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
+          <div className="text-6xl animate-celebration">
+            🎊🎉🎊
+          </div>
+          <div className="absolute inset-0 overflow-hidden">
+            {Array.from({ length: 20 }, (_, i) => (
+              <div
+                key={i}
+                className="absolute text-2xl animate-confetti"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: '-5%',
+                  animationDelay: `${Math.random() * 2}s`,
+                  animationDuration: `${Math.random() * 2 + 2}s`,
+                }}
+              >
+                {['🎉', '🎊', '⭐', '🌟', '✨', '🏆', '💪', '🎯'][i % 8]}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <style>{`
-        .perspective {
-          perspective: 800px;
-        }
-        .preserve-3d {
-          transform-style: preserve-3d;
-        }
-        .backface-hidden {
-          backface-visibility: hidden;
-          -webkit-backface-visibility: hidden;
-        }
-        .rotate-y-0 {
-          transform: rotateY(0deg);
-        }
-        .rotate-y-180 {
-          transform: rotateY(180deg);
-        }
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
@@ -579,6 +623,76 @@ export default function Encyclopedia() {
         }
         .animate-scale-in {
           animation: scale-in 0.2s ease-out;
+        }
+        @keyframes bounce-subtle {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        .group:hover .group-hover\\:animate-bounce-subtle {
+          animation: bounce-subtle 0.5s ease-in-out;
+        }
+        @keyframes float-star {
+          0%, 100% {
+            opacity: 0.3;
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            opacity: 0.8;
+            transform: translateY(-20px) rotate(180deg);
+          }
+        }
+        .animate-float-star {
+          animation: float-star ease-in-out infinite;
+        }
+        @keyframes celebration {
+          0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+          25% { transform: scale(1.3) rotate(-5deg); opacity: 1; }
+          50% { transform: scale(1.5) rotate(5deg); opacity: 0.9; }
+          75% { transform: scale(1.3) rotate(-3deg); opacity: 1; }
+        }
+        .animate-celebration {
+          animation: celebration 1s ease-in-out infinite;
+        }
+        @keyframes confetti {
+          0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(100vh) rotate(720deg);
+            opacity: 0;
+          }
+        }
+        .animate-confetti {
+          animation: confetti ease-in forwards;
+        }
+        @keyframes sparkle-shine {
+          0% {
+            background-position: -200% center;
+          }
+          100% {
+            background-position: 200% center;
+          }
+        }
+        .card-sparkle::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(
+            105deg,
+            transparent 30%,
+            rgba(255, 215, 0, 0.15) 45%,
+            rgba(255, 215, 0, 0.25) 50%,
+            rgba(255, 215, 0, 0.15) 55%,
+            transparent 70%
+          );
+          background-size: 200% 100%;
+          animation: sparkle-shine 3s ease-in-out infinite;
+          pointer-events: none;
+          border-radius: 0.75rem;
         }
       `}</style>
     </div>
