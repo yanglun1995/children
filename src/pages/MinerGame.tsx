@@ -17,7 +17,7 @@ const TIME_LIMIT = 15;
 const HOOK_EXTEND_DURATION = 600;
 const HOOK_RETRACT_DURATION = 500;
 
-const gemEmojis = ['💎', '🥇', '💠', '🔮', '⭐', '💰', '💚', '💙'];
+const gemEmojis = ['💎', '🥇', '💠', '🔮', '⭐', '💰'];
 
 interface OptionPosition {
   index: number;
@@ -91,8 +91,8 @@ export default function MinerGame() {
 
     const swingHook = () => {
       const startTime = Date.now();
-      const swingDuration = 4500;
-      const maxAngle = 55;
+      const swingDuration = 4000;
+      const maxAngle = 70;
 
       const animate = () => {
         const elapsed = Date.now() - startTime;
@@ -146,12 +146,14 @@ export default function MinerGame() {
     if (isHookExtended || isHookRetracting || selectedAnswer !== null) return;
 
     setIsHookExtended(true);
-    setHookLength(260);
-
+    
     const startTime = Date.now();
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / HOOK_EXTEND_DURATION, 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      
+      setHookLength(300 * easeProgress);
       
       if (progress >= 1) {
         determineHit();
@@ -168,11 +170,11 @@ export default function MinerGame() {
     const angle = hookAngle;
     let targetIndex = 0;
     
-    if (angle < -30) {
+    if (angle < -40) {
       targetIndex = 0;
     } else if (angle < 0) {
       targetIndex = 2;
-    } else if (angle < 30) {
+    } else if (angle < 40) {
       targetIndex = 3;
     } else {
       targetIndex = 1;
@@ -199,20 +201,33 @@ export default function MinerGame() {
 
       setTimeout(() => {
         setIsHookRetracting(true);
-        setHookLength(0);
         
-        setTimeout(() => {
-          setIsHookExtended(false);
-          setIsHookRetracting(false);
-          setGrabTarget(null);
-          setSelectedAnswer(null);
-          setIsCorrect(null);
-          setTimeLeft(TIME_LIMIT);
-          setCurrentQuestion(getRandomQuestion());
-          setCorrectCount(prev => prev + 1);
-          setGemIndices(generateGemIndices());
-          setOptionPositions(generateOptionPositions());
-        }, HOOK_RETRACT_DURATION);
+        const retractStartTime = Date.now();
+        const animateRetract = () => {
+          const elapsed = Date.now() - retractStartTime;
+          const progress = Math.min(elapsed / HOOK_RETRACT_DURATION, 1);
+          const easeProgress = 1 - Math.pow(1 - progress, 2);
+          
+          setHookLength(300 * (1 - easeProgress));
+          
+          if (progress >= 1) {
+            setIsHookExtended(false);
+            setIsHookRetracting(false);
+            setGrabTarget(null);
+            setSelectedAnswer(null);
+            setIsCorrect(null);
+            setTimeLeft(TIME_LIMIT);
+            setCurrentQuestion(getRandomQuestion());
+            setCorrectCount(prev => prev + 1);
+            setGemIndices(generateGemIndices());
+            setOptionPositions(generateOptionPositions());
+            return;
+          }
+          
+          hookAnimationRef.current = requestAnimationFrame(animateRetract);
+        };
+        
+        hookAnimationRef.current = requestAnimationFrame(animateRetract);
       }, 600);
     } else {
       setTimeout(() => {
@@ -223,19 +238,19 @@ export default function MinerGame() {
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-b from-sky-400 via-sky-300 to-green-400 select-none overflow-hidden relative"
+      className="min-h-dvh bg-gradient-to-b from-sky-400 via-sky-300 to-green-400 select-none overflow-hidden relative"
       onClick={handleScreenClick}
     >
       <header className="bg-black/40 backdrop-blur-sm relative z-20">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <button
-            onClick={(e) => { e.stopPropagation(); navigate('/'); }}
+            onClick={(e) => { e.stopPropagation(); navigate(-1); }}
             className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-white" />
           </button>
           <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-r from-yellow-400 to-amber-500 text-white px-4 py-2 rounded-full font-bold shadow-lg flex items-center gap-1">
+            <div className="bg-gradient-to-r from-amber-400 to-yellow-500 text-white px-4 py-2 rounded-full font-bold shadow-lg flex items-center gap-1">
               <Pickaxe className="w-4 h-4" />
               <span>{score}</span>
               <Gem className="w-4 h-4" />
@@ -255,7 +270,7 @@ export default function MinerGame() {
         <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-gradient-to-br from-amber-800 to-yellow-900 rounded-3xl border-4 border-yellow-400 p-8 shadow-2xl">
             <div className="text-center mb-6">
-              <div className="text-8xl mb-4 animate-bounce">⛏️</div>
+              <div className="text-9xl mb-4 animate-bounce">⛏️</div>
               <h1 className="text-3xl font-bold text-yellow-300 mb-2" style={{ textShadow: '3px 3px 0 #78350f' }}>
                 黄金矿工问答
               </h1>
@@ -349,7 +364,7 @@ export default function MinerGame() {
             <div className="absolute bottom-24 left-[60%] text-lg opacity-15">💎</div>
 
             <div className="relative z-10 mx-4 mt-3">
-              <div className="bg-gradient-to-r from-amber-800/90 via-yellow-800/90 to-amber-800/90 rounded-xl px-4 py-3 border-2 border-yellow-600/50 shadow-lg">
+              <div className="bg-gradient-to-r from-amber-800/90 via-yellow-800/90 to-amber-800/90 rounded-2xl px-4 py-3 border-2 border-yellow-600/50 shadow-lg">
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="w-4 h-4 text-yellow-400" />
                   <span className="text-yellow-300 text-xs font-bold">第 {correctCount + 1} 题</span>
@@ -412,7 +427,7 @@ export default function MinerGame() {
               })}
             </div>
 
-            {scorePopups.map(popup => (
+            {scorePopups.map((popup) => (
               <div
                 key={popup.id}
                 className="absolute z-20 text-xl font-bold text-yellow-300 pointer-events-none"
@@ -439,7 +454,7 @@ export default function MinerGame() {
       {gameState === 'gameover' && (
         <div className="absolute inset-0 z-10 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="max-w-md w-full bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl border-4 border-yellow-600 p-8 shadow-2xl text-center">
-            <div className="text-8xl mb-4">💎</div>
+            <div className="text-9xl mb-4">💎</div>
             <h2 className="text-3xl font-bold text-white mb-2">挖矿结束！</h2>
             <div className="flex items-center justify-center gap-2 text-5xl font-bold text-yellow-400 my-4">
               <Pickaxe className="w-10 h-10" />

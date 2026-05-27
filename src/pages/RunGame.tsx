@@ -1,19 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '@/stores/gameStore';
-import { ArrowLeft, Pause, Play, RotateCcw, Star } from 'lucide-react';
+import { ArrowLeft, Pause, Play, RotateCcw, Star, Heart } from 'lucide-react';
 import { knowledgeCards } from '@/data/questions';
 
 interface GameObject {
   id: number;
   x: number;
   y: number;
-  type: 'obstacle' | 'brick' | 'fruit' | 'coin' | 'mushroom' | 'star' | 'heart';
+  type: 'obstacle' | 'brick' | 'fruit' | 'coin' | 'mushroom' | 'heart' | 'star';
   emoji: string;
   width: number;
   height: number;
   hit: boolean;
   vy?: number;
+  originalY?: number;
+  coinPhase?: number;
 }
 
 interface FloatingText {
@@ -33,6 +35,23 @@ interface Particle {
   vx: number;
   life: number;
   color: string;
+  size: number;
+}
+
+interface Cloud {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+interface Tree {
+  x: number;
+  height: number;
+}
+
+interface Mountain {
+  x: number;
+  scale: number;
 }
 
 const CANVAS_WIDTH = 420;
@@ -43,11 +62,11 @@ const JUMP_FORCE = -16;
 const GAME_SPEED_BASE = 4;
 
 const fruits = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉'];
-const obstacles = ['🍔', '🍟', '🍕', '🚬', '🌶️', '🍻', '🍿', '🧁'];
+const obstacles = ['🍔', '🍟', '🍕', '🚬', '🌶️', '🍻', '🍿', '🧁', '🍫'];
 
 export default function RunGame() {
   const navigate = useNavigate();
-  const { addScore, addBadge } = useGameStore();
+  const { addScore } = useGameStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
   const touchStartRef = useRef({ x: 0, y: 0 });
@@ -64,16 +83,21 @@ export default function RunGame() {
   const [isInvincible, setIsInvincible] = useState(false);
   const [gameSpeed, setGameSpeed] = useState(GAME_SPEED_BASE);
   const [isRunning, setIsRunning] = useState(false);
+  const [isDucking, setIsDucking] = useState(false);
   
   const objectsRef = useRef<GameObject[]>([]);
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const particlesRef = useRef<Particle[]>([]);
+  const cloudsRef = useRef<Cloud[]>([]);
+  const treesRef = useRef<Tree[]>([]);
+  const mountainsRef = useRef<Mountain[]>([]);
+  
   const objectIdRef = useRef(0);
   const floatingTextIdRef = useRef(0);
   const particleIdRef = useRef(0);
   const lastSpawnRef = useRef(0);
   const invincibleTimerRef = useRef<NodeJS.Timeout>();
-  const runningTimerRef = useRef<NodeJS.Timeout>();
+  const playerFrameRef = useRef(0);
 
   const [reviveKnowledge, setReviveKnowledge] = useState<any>(null);
   const [isKnowledgeLearned, setIsKnowledgeLearned] = useState(false);
@@ -88,22 +112,61 @@ export default function RunGame() {
         id: particleIdRef.current++,
         x,
         y,
-        vy: -5 - Math.random() * 5,
+        vy: -3 - Math.random() * 4,
         vx: (Math.random() - 0.5) * 6,
         life: 1,
         color,
+        size: 3 + Math.random() * 4,
       });
     }
   };
+
+  const createFloatingText = (x: number, y: number, text: string) => {
+    floatingTextsRef.current.push({
+      id: floatingTextIdRef.current++,
+      x,
+      y,
+      text,
+      life: 1,
+      vy: -3,
+    });
+  };
+
+  const initGame = useCallback(() => {
+    objectsRef.current = [];
+    floatingTextsRef.current = [];
+    particlesRef.current = [];
+    objectIdRef.current = 0;
+    floatingTextIdRef.current = 0;
+    particleIdRef.current = 0;
+    lastSpawnRef.current = 0;
+    playerFrameRef.current = 0;
+    
+    cloudsRef.current = Array.from({ length: 6 }, (_, i) => ({
+      x: i * 80 - 50,
+      y: 30 + Math.random() * 50,
+      scale: 0.7 + Math.random() * 0.6,
+    }));
+    
+    treesRef.current = Array.from({ length: 8 }, (_, i) => ({
+      x: i * 70 - 30,
+      height: 60 + Math.random() * 40,
+    }));
+    
+    mountainsRef.current = Array.from({ length: 4 }, (_, i) => ({
+      x: i * 150 - 100,
+      scale: 0.8 + Math.random() * 0.5,
+    }));
+  }, []);
 
   const spawnObject = useCallback((time: number) => {
     const rand = Math.random();
     let obj: GameObject;
     
-    if (rand < 0.25) {
+    if (rand < 0.22) {
       obj = {
         id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 50,
+        x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 45,
         type: 'obstacle',
         emoji: obstacles[Math.floor(Math.random() * obstacles.length)],
@@ -111,13 +174,14 @@ export default function RunGame() {
         height: 45,
         hit: false,
       };
-    } else if (rand < 0.40) {
+    } else if (rand < 0.38) {
+      const hasQuestion = Math.random() > 0.5;
       obj = {
         id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 50,
-        y: GROUND_Y - 90,
+        x: CANVAS_WIDTH + 60,
+        y: GROUND_Y - 90 - Math.random() * 60,
         type: 'brick',
-        emoji: '🧱',
+        emoji: hasQuestion ? '❓' : '🧱',
         width: 45,
         height: 45,
         hit: false,
@@ -125,30 +189,19 @@ export default function RunGame() {
     } else if (rand < 0.55) {
       obj = {
         id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 50,
+        x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 130 - Math.random() * 60,
         type: 'coin',
         emoji: '🪙',
         width: 28,
         height: 28,
         hit: false,
-        vy: Math.sin(time * 0.005) * 2,
+        coinPhase: 0,
       };
-    } else if (rand < 0.65) {
+    } else if (rand < 0.68) {
       obj = {
         id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 50,
-        y: GROUND_Y - 140,
-        type: 'brick',
-        emoji: '❓',
-        width: 45,
-        height: 45,
-        hit: false,
-      };
-    } else if (rand < 0.72) {
-      obj = {
-        id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 50,
+        x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 50,
         type: 'mushroom',
         emoji: '🍄',
@@ -159,7 +212,7 @@ export default function RunGame() {
     } else if (rand < 0.82) {
       obj = {
         id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 50,
+        x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 80 - Math.random() * 120,
         type: 'fruit',
         emoji: fruits[Math.floor(Math.random() * fruits.length)],
@@ -167,10 +220,10 @@ export default function RunGame() {
         height: 38,
         hit: false,
       };
-    } else if (rand < 0.88) {
+    } else if (rand < 0.92) {
       obj = {
         id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 50,
+        x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 160 - Math.random() * 80,
         type: 'star',
         emoji: '⭐',
@@ -181,7 +234,7 @@ export default function RunGame() {
     } else {
       obj = {
         id: objectIdRef.current++,
-        x: CANVAS_WIDTH + 50,
+        x: CANVAS_WIDTH + 60,
         y: GROUND_Y - 100 - Math.random() * 100,
         type: 'heart',
         emoji: '❤️',
@@ -193,22 +246,11 @@ export default function RunGame() {
     return obj;
   }, []);
 
-  const createFloatingText = (x: number, y: number, text: string) => {
-    return {
-      id: floatingTextIdRef.current++,
-      x,
-      y,
-      text,
-      life: 1,
-      vy: -3,
-    };
-  };
-
   const handleJump = useCallback(() => {
     if (!isJumping) {
       setPlayerVy(JUMP_FORCE);
       setIsJumping(true);
-      createParticles(playerX + 25, playerY, '#FFD700', 8);
+      createParticles(playerX + 25, playerY + 40, '#f59e0b', 8);
     }
   }, [isJumping, playerX, playerY]);
 
@@ -253,20 +295,30 @@ export default function RunGame() {
         setIsRunning(true);
       } else if ((e.key === 'ArrowUp' || e.key === ' ') && !isJumping) {
         handleJump();
+      } else if (e.key === 'ArrowDown') {
+        setIsDucking(true);
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        setIsDucking(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [gameState, isJumping, handleJump]);
 
   useEffect(() => {
     if (isRunning) {
-      runningTimerRef.current = setTimeout(() => setIsRunning(false), 200);
+      const timer = setTimeout(() => setIsRunning(false), 200);
+      return () => clearTimeout(timer);
     }
-    return () => {
-      if (runningTimerRef.current) clearTimeout(runningTimerRef.current);
-    };
   }, [isRunning]);
 
   useEffect(() => {
@@ -278,95 +330,82 @@ export default function RunGame() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let bgOffset = 0;
-    let cloudOffset = 0;
-    let mountainOffset = 0;
-    let treeOffset = 0;
-    let castleOffset = 0;
-    let playerFrame = 0;
-
-    const gameLoop = (timestamp: number) => {
+    const gameLoop = (time: number) => {
       if (gameState !== 'playing') return;
+      
+      playerFrameRef.current++;
 
-      bgOffset = (bgOffset + gameSpeed * 0.2) % 100;
-      cloudOffset = (cloudOffset + gameSpeed * 0.08) % 400;
-      mountainOffset = (mountainOffset + gameSpeed * 0.15) % 300;
-      treeOffset = (treeOffset + gameSpeed * 0.4) % 250;
-      castleOffset = (castleOffset + gameSpeed * 0.05) % 600;
-      playerFrame = (playerFrame + 1) % 4;
-
-      const skyGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-      skyGradient.addColorStop(0, '#4A90D9');
-      skyGradient.addColorStop(0.3, '#7EC8E3');
-      skyGradient.addColorStop(0.7, '#B8E4F0');
-      skyGradient.addColorStop(1, '#D4EDF7');
-      ctx.fillStyle = skyGradient;
+      ctx.fillStyle = '#87CEEB';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      const skyGradient = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      skyGradient.addColorStop(0, '#4A90D9');
+      skyGradient.addColorStop(0.4, '#7EC8E3');
+      skyGradient.addColorStop(1, '#B8E4F0');
+      ctx.fillStyle = skyGradient;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, GROUND_Y);
+      
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath();
+      ctx.arc(360, 60, 35, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#FFE066';
+      ctx.beginPath();
+      ctx.arc(360, 60, 28, 0, Math.PI * 2);
+      ctx.fill();
 
-      for (let i = 0; i < 3; i++) {
-        const castleX = ((i * 600 + castleOffset) % (CANVAS_WIDTH + 800)) - 200;
-        ctx.fillStyle = '#8B7355';
-        ctx.fillRect(castleX + 50, GROUND_Y - 180, 80, 60);
-        ctx.fillRect(castleX + 30, GROUND_Y - 140, 20, 100);
-        ctx.fillRect(castleX + 130, GROUND_Y - 140, 20, 100);
-        ctx.fillStyle = '#FFD700';
-        ctx.beginPath();
-        ctx.moveTo(castleX + 90, GROUND_Y - 220);
-        ctx.lineTo(castleX + 100, GROUND_Y - 180);
-        ctx.lineTo(castleX + 80, GROUND_Y - 180);
-        ctx.fill();
-      }
-
-      for (let i = 0; i < 5; i++) {
-        const mountainX = ((i * 250 + mountainOffset) % (CANVAS_WIDTH + 300)) - 150;
+      mountainsRef.current.forEach(m => {
+        m.x -= gameSpeed * 0.15;
+        if (m.x < -200) m.x = CANVAS_WIDTH + 100;
+        
         ctx.fillStyle = '#6B8E23';
         ctx.beginPath();
-        ctx.moveTo(mountainX, GROUND_Y);
-        ctx.lineTo(mountainX + 80, GROUND_Y - 120);
-        ctx.lineTo(mountainX + 160, GROUND_Y);
+        ctx.moveTo(m.x, GROUND_Y);
+        ctx.lineTo(m.x + 80 * m.scale, GROUND_Y - 120 * m.scale);
+        ctx.lineTo(m.x + 160 * m.scale, GROUND_Y);
         ctx.fill();
+        
         ctx.fillStyle = '#8FBC8F';
         ctx.beginPath();
-        ctx.moveTo(mountainX + 20, GROUND_Y);
-        ctx.lineTo(mountainX + 80, GROUND_Y - 90);
-        ctx.lineTo(mountainX + 140, GROUND_Y);
+        ctx.moveTo(m.x + 20, GROUND_Y);
+        ctx.lineTo(m.x + 80 * m.scale, GROUND_Y - 90 * m.scale);
+        ctx.lineTo(m.x + 140, GROUND_Y);
         ctx.fill();
-      }
+      });
 
-      ctx.fillStyle = '#FFFFFF';
-      ctx.globalAlpha = 0.9;
-      for (let i = 0; i < 6; i++) {
-        const cloudX = ((i * 200 + cloudOffset) % (CANVAS_WIDTH + 300)) - 150;
-        const cloudY = 40 + (i % 3) * 50;
-        const cloudScale = 0.8 + (i % 2) * 0.4;
+      cloudsRef.current.forEach(c => {
+        c.x -= gameSpeed * 0.08;
+        if (c.x < -150) c.x = CANVAS_WIDTH + 100;
         
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.beginPath();
-        ctx.arc(cloudX, cloudY, 30 * cloudScale, 0, Math.PI * 2);
-        ctx.arc(cloudX + 25 * cloudScale, cloudY - 12 * cloudScale, 25 * cloudScale, 0, Math.PI * 2);
-        ctx.arc(cloudX + 50 * cloudScale, cloudY, 30 * cloudScale, 0, Math.PI * 2);
+        ctx.arc(c.x, c.y, 30 * c.scale, 0, Math.PI * 2);
+        ctx.arc(c.x + 25 * c.scale, c.y - 12 * c.scale, 25 * c.scale, 0, Math.PI * 2);
+        ctx.arc(c.x + 50 * c.scale, c.y, 30 * c.scale, 0, Math.PI * 2);
         ctx.fill();
-      }
-      ctx.globalAlpha = 1;
+      });
 
-      for (let i = 0; i < 15; i++) {
-        const treeX = ((i * 120 + treeOffset) % (CANVAS_WIDTH + 150)) - 75;
+      treesRef.current.forEach(t => {
+        t.x -= gameSpeed * 0.4;
+        if (t.x < -100) t.x = CANVAS_WIDTH + 80;
         
         ctx.fillStyle = '#8B4513';
-        ctx.fillRect(treeX - 5, GROUND_Y - 30, 10, 30);
+        ctx.fillRect(t.x + 12, GROUND_Y - t.height, 15, t.height);
         
         ctx.fillStyle = '#228B22';
         ctx.beginPath();
-        ctx.moveTo(treeX - 20, GROUND_Y - 30);
-        ctx.lineTo(treeX, GROUND_Y - 70);
-        ctx.lineTo(treeX + 20, GROUND_Y - 30);
+        ctx.moveTo(t.x, GROUND_Y - t.height);
+        ctx.lineTo(t.x + 20, GROUND_Y - t.height - 50);
+        ctx.lineTo(t.x + 40, GROUND_Y - t.height);
         ctx.fill();
         
         ctx.beginPath();
-        ctx.moveTo(treeX - 15, GROUND_Y - 45);
-        ctx.lineTo(treeX, GROUND_Y - 75);
-        ctx.lineTo(treeX + 15, GROUND_Y - 45);
+        ctx.moveTo(t.x + 5, GROUND_Y - t.height - 20);
+        ctx.lineTo(t.x + 20, GROUND_Y - t.height - 60);
+        ctx.lineTo(t.x + 35, GROUND_Y - t.height - 20);
         ctx.fill();
-      }
+      });
 
       const groundGradient = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
       groundGradient.addColorStop(0, '#90EE90');
@@ -377,7 +416,7 @@ export default function RunGame() {
 
       ctx.fillStyle = '#228B22';
       for (let i = 0; i < 25; i++) {
-        const x = ((i * 25 + bgOffset) % CANVAS_WIDTH);
+        const x = ((i * 25 + time * 0.05) % CANVAS_WIDTH);
         ctx.fillRect(x, GROUND_Y - 6, 15, 6);
       }
 
@@ -386,14 +425,14 @@ export default function RunGame() {
 
       ctx.fillStyle = '#000080';
       for (let i = 0; i < 10; i++) {
-        const x = ((i * 50 + bgOffset * 1.5) % CANVAS_WIDTH);
+        const x = ((i * 50 + time * 0.1) % CANVAS_WIDTH);
         ctx.fillRect(x, GROUND_Y + 5, 20, 8);
         ctx.fillRect(x + 5, GROUND_Y + 13, 10, 5);
       }
 
-      if (timestamp - lastSpawnRef.current > 1000 - gameSpeed * 30) {
-        objectsRef.current.push(spawnObject(timestamp));
-        lastSpawnRef.current = timestamp;
+      if (time - lastSpawnRef.current > 1000 - gameSpeed * 30) {
+        objectsRef.current.push(spawnObject(time));
+        lastSpawnRef.current = time;
         
         if (gameSpeed < 15) {
           setGameSpeed(prev => prev + 0.15);
@@ -418,14 +457,15 @@ export default function RunGame() {
 
       objectsRef.current = objectsRef.current.filter(obj => {
         obj.x -= gameSpeed;
-        if (obj.vy) {
-          obj.y += Math.sin(timestamp * 0.003) * obj.vy;
+        
+        if (obj.coinPhase !== undefined) {
+          obj.coinPhase += 0.15;
         }
 
         const px = playerX + 22;
         const py = playerY;
         const pw = 32;
-        const ph = 50;
+        const ph = isDucking ? 30 : 50;
 
         const ox = obj.x;
         const oy = obj.y;
@@ -440,7 +480,7 @@ export default function RunGame() {
               hitObstacle = true;
             }
           } else if (obj.type === 'brick') {
-            if (playerVy > 0 && py + ph - 15 < oy + oh / 2) {
+            if (playerVy > 0 && py + ph - 15 < oy + oh / 2 && !obj.hit) {
               obj.hit = true;
               setPlayerVy(-10);
               setIsJumping(true);
@@ -461,7 +501,7 @@ export default function RunGame() {
                     width: itemType === 'coin' ? 25 : 30,
                     height: itemType === 'coin' ? 25 : 30,
                     hit: false,
-                    vy: -4,
+                    vy: -5,
                   });
                 }, i * 80);
               }
@@ -469,18 +509,18 @@ export default function RunGame() {
           } else if (obj.type === 'fruit') {
             const newScore = score + 15;
             setScore(newScore);
-            floatingTextsRef.current.push(createFloatingText(obj.x, obj.y, '+15'));
+            createFloatingText(obj.x, obj.y, '+15');
             createParticles(obj.x + obj.width / 2, obj.y, '#FF69B4', 8);
             return false;
           } else if (obj.type === 'coin') {
             setCoins(prev => prev + 1);
             setScore(prev => prev + 8);
-            floatingTextsRef.current.push(createFloatingText(obj.x, obj.y, '+8'));
+            createFloatingText(obj.x, obj.y, '+8');
             createParticles(obj.x + obj.width / 2, obj.y, '#FFD700', 6);
             return false;
           } else if (obj.type === 'mushroom') {
             setIsInvincible(true);
-            floatingTextsRef.current.push(createFloatingText(obj.x, obj.y, '✨无敌5秒'));
+            createFloatingText(obj.x, obj.y, '✨无敌!');
             createParticles(obj.x + obj.width / 2, obj.y, '#98FB98', 10);
             if (invincibleTimerRef.current) clearTimeout(invincibleTimerRef.current);
             invincibleTimerRef.current = setTimeout(() => {
@@ -490,14 +530,27 @@ export default function RunGame() {
           } else if (obj.type === 'star') {
             const newScore = score + 30;
             setScore(newScore);
-            floatingTextsRef.current.push(createFloatingText(obj.x, obj.y, '+30'));
+            createFloatingText(obj.x, obj.y, '+30');
             createParticles(obj.x + obj.width / 2, obj.y, '#FFFF00', 15);
             return false;
           } else if (obj.type === 'heart') {
             setLives(prev => Math.min(prev + 1, 5));
-            floatingTextsRef.current.push(createFloatingText(obj.x, obj.y, '+1生命'));
+            createFloatingText(obj.x, obj.y, '+1❤️');
             createParticles(obj.x + obj.width / 2, obj.y, '#FF6B6B', 10);
             return false;
+          }
+        }
+        
+        if (obj.vy !== undefined && obj.originalY === undefined) {
+          obj.originalY = obj.y;
+          obj.vy = -5;
+        }
+        if (obj.originalY !== undefined && obj.vy !== undefined) {
+          obj.y += obj.vy;
+          obj.vy += 0.3;
+          if (obj.y > GROUND_Y - 40) {
+            obj.y = GROUND_Y - 40;
+            obj.vy = 0;
           }
         }
 
@@ -514,7 +567,7 @@ export default function RunGame() {
         } else {
           setIsInvincible(true);
           setTimeout(() => setIsInvincible(false), 3000);
-          createParticles(playerX + 25, playerY, '#FF6B6B', 20);
+          createParticles(playerX + 25, playerY + 20, '#FF6B6B', 20);
         }
         return;
       }
@@ -536,10 +589,10 @@ export default function RunGame() {
       objectsRef.current.forEach(obj => {
         ctx.save();
         
-        if (obj.type === 'coin') {
-          const coinAngle = (timestamp * 0.01) % (Math.PI * 2);
+        if (obj.type === 'coin' && obj.coinPhase !== undefined) {
+          const scaleX = Math.abs(Math.sin(obj.coinPhase));
           ctx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
-          ctx.rotate(coinAngle);
+          ctx.scale(scaleX, 1);
           ctx.font = `${obj.width}px Arial`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -555,7 +608,7 @@ export default function RunGame() {
           ctx.strokeStyle = '#8B4513';
           ctx.lineWidth = 3;
           ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
-          ctx.fillStyle = '#DEB887';
+          ctx.fillStyle = 'rgba(222, 184, 135, 0.7)';
           ctx.fillRect(obj.x + 2, obj.y + 2, obj.width - 4, obj.height - 4);
           ctx.font = `${obj.width - 8}px Arial`;
           ctx.textAlign = 'center';
@@ -583,25 +636,25 @@ export default function RunGame() {
         ctx.globalAlpha = p.life;
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
       });
 
       ctx.save();
-      ctx.translate(playerX + 26, playerY + 25);
+      ctx.translate(playerX + 25, playerY + (isDucking ? 35 : 25));
       ctx.scale(playerDir, 1);
       
       if (isInvincible) {
-        ctx.globalAlpha = 0.4 + Math.sin(timestamp * 0.015) * 0.4;
+        ctx.globalAlpha = 0.4 + Math.sin(time * 0.015) * 0.4;
       }
       
-      ctx.font = '50px Arial';
+      ctx.font = isDucking ? '35px Arial' : '50px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      const playerSprites = ['🧑‍🦱', '🏃', '🧑‍🦱', '🏃'];
-      ctx.fillText(playerSprites[playerFrame], 0, 0);
+      const sprites = ['🧑‍🦱', '🏃', '🧑‍🦱', '🏃'];
+      ctx.fillText(isDucking ? '🧑‍🦱' : sprites[playerFrameRef.current % 4], 0, 0);
       
       if (isJumping) {
         ctx.font = '22px Arial';
@@ -623,7 +676,7 @@ export default function RunGame() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, spawnObject, playerVy, score, isInvincible, gameSpeed, playerDir, lives]);
+  }, [gameState, spawnObject, playerVy, score, isInvincible, gameSpeed, playerDir, lives, isDucking]);
 
   const learnAndRevive = () => {
     if (reviveKnowledge) {
@@ -632,6 +685,7 @@ export default function RunGame() {
   };
 
   const revive = () => {
+    initGame();
     setGameState('playing');
     setPlayerX(80);
     setPlayerY(GROUND_Y);
@@ -640,14 +694,11 @@ export default function RunGame() {
     setIsInvincible(false);
     setGameSpeed(GAME_SPEED_BASE);
     setLives(3);
-    objectsRef.current = [];
-    floatingTextsRef.current = [];
-    particlesRef.current = [];
-    objectIdRef.current = 0;
-    lastSpawnRef.current = 0;
+    setIsDucking(false);
   };
 
   const startGame = () => {
+    initGame();
     setScore(0);
     setCoins(0);
     setLives(3);
@@ -657,17 +708,13 @@ export default function RunGame() {
     setIsJumping(false);
     setIsInvincible(false);
     setGameSpeed(GAME_SPEED_BASE);
-    objectsRef.current = [];
-    floatingTextsRef.current = [];
-    particlesRef.current = [];
-    objectIdRef.current = 0;
-    lastSpawnRef.current = 0;
+    setIsDucking(false);
     setGameState('playing');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-500 to-green-400">
-      <header className="bg-black/50 backdrop-blur-sm">
+    <div className="min-h-dvh bg-gradient-to-b from-sky-500 to-green-400">
+      <header className="bg-black/50 backdrop-blur-sm relative z-20">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
@@ -678,8 +725,8 @@ export default function RunGame() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
               {Array.from({ length: 5 }).map((_, i) => (
-                <span key={i} className={`text-xl ${i < lives ? 'opacity-100' : 'opacity-30'}`}>
-                  ❤️
+                <span key={i} className={`text-lg ${i < lives ? 'opacity-100' : 'opacity-30'}`}>
+                  <Heart className="w-4 h-4 fill-red-500 text-red-500" />
                 </span>
               ))}
             </div>
@@ -687,8 +734,8 @@ export default function RunGame() {
               <Star className="w-4 h-4" />
               {score}
             </div>
-            <div className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white px-3 py-2 rounded-full font-bold">
-              🪙 {coins}
+            <div className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white px-3 py-2 rounded-full font-bold flex items-center gap-1">
+              🪙 <span>{coins}</span>
             </div>
           </div>
           {gameState === 'playing' && (
@@ -703,7 +750,9 @@ export default function RunGame() {
       </header>
 
       <div className="p-3">
-        <p className="text-center text-white/90 text-sm mb-2">👈👉 左右滑动移动 | ⬆️ 上滑/空格跳跃</p>
+        <p className="text-center text-white/90 text-sm mb-2">
+          👆点击/向上滑动=跳跃 | 👈👉左右滑动=移动 | ⬇️向下=下蹲
+        </p>
       </div>
 
       <div className="flex justify-center">
@@ -719,23 +768,40 @@ export default function RunGame() {
 
       {gameState === 'menu' && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-green-600 via-green-700 to-emerald-800 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-4 border-yellow-400">
+          <div className="bg-gradient-to-br from-green-600 via-green-700 to-emerald-800 rounded-3xl p-8 text-center shadow-2xl max-w-md mx-4 border-4 border-yellow-400">
             <div className="text-9xl mb-4 animate-bounce">🍄</div>
-            <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">超级健康马里奥</h2>
-            <p className="text-green-200 mb-6">躲避垃圾食品，收集水果金币！</p>
+            <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-lg font-cute">超级健康马里奥</h2>
+            <p className="text-emerald-100 mb-6">躲避垃圾食品，收集水果和金币！</p>
             
             <div className="bg-black/40 rounded-2xl p-5 mb-6 border border-green-500/30">
-              <h3 className="text-lg font-bold text-yellow-300 mb-3">🎮 游戏规则</h3>
-              <ul className="text-left text-green-100 text-sm space-y-2">
-                <li className="flex items-center gap-2"><span>🏃</span> 左右滑动移动</li>
-                <li className="flex items-center gap-2"><span>⬆️</span> 上滑/空格跳跃</li>
-                <li className="flex items-center gap-2"><span>🧱</span> 顶砖块掉落奖励</li>
-                <li className="flex items-center gap-2"><span>🍎</span> 水果 +15分</li>
-                <li className="flex items-center gap-2"><span>🪙</span> 金币 +8分</li>
-                <li className="flex items-center gap-2"><span>⭐</span> 星星 +30分</li>
-                <li className="flex items-center gap-2"><span>❤️</span> 爱心 +1生命</li>
-                <li className="flex items-center gap-2"><span>🍄</span> 蘑菇=5秒无敌</li>
-                <li className="flex items-center gap-2"><span>🍔</span> 垃圾食品=减命</li>
+              <h3 className="text-lg font-bold text-yellow-300 mb-3 flex items-center justify-center gap-2">
+                <span className="text-xl">🎮</span> 游戏规则
+              </h3>
+              <ul className="space-y-2 text-emerald-100 text-sm text-left">
+                <li className="flex items-center gap-2">
+                  <span>🏃</span> 左右滑动移动，躲避障碍物
+                </li>
+                <li className="flex items-center gap-2">
+                  <span>⬆️</span> 向上滑动跳跃，踩/顶砖块
+                </li>
+                <li className="flex items-center gap-2">
+                  <span>🧱</span> 顶砖块会掉出奖励物品
+                </li>
+                <li className="flex items-center gap-2">
+                  <span>🍎</span> 水果+15分，金币+8分
+                </li>
+                <li className="flex items-center gap-2">
+                  <span>⭐</span> 星星+30分，收集稀有奖励
+                </li>
+                <li className="flex items-center gap-2">
+                  <span>🍄</span> 蘑菇=5秒无敌时间
+                </li>
+                <li className="flex items-center gap-2">
+                  <span>❤️</span> 爱心+1生命，最多5条命
+                </li>
+                <li className="flex items-center gap-2">
+                  <span>🍔</span> 碰到垃圾食品扣血
+                </li>
               </ul>
             </div>
 
@@ -751,19 +817,19 @@ export default function RunGame() {
 
       {gameState === 'paused' && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-2 border-yellow-500">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 text-center shadow-2xl max-w-md mx-4 border-2 border-yellow-500">
             <div className="text-6xl mb-4">⏸️</div>
             <h2 className="text-2xl font-bold text-white mb-6">游戏暂停</h2>
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => setGameState('playing')}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3 px-8 rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2"
+                className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3 px-6 rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2"
               >
                 <Play className="w-5 h-5" /> 继续游戏
               </button>
               <button
                 onClick={startGame}
-                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold py-3 px-8 rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2"
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold py-3 px-6 rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2"
               >
                 <RotateCcw className="w-5 h-5" /> 重新开始
               </button>
@@ -774,21 +840,25 @@ export default function RunGame() {
 
       {gameState === 'gameover' && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-red-700 via-red-800 to-red-900 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4 border-4 border-yellow-400">
+          <div className="bg-gradient-to-br from-red-700 via-red-800 to-red-900 rounded-3xl p-8 text-center shadow-2xl max-w-md mx-4 border-4 border-yellow-400">
             <div className="text-6xl mb-4">💥</div>
             <h2 className="text-2xl font-bold text-white mb-2">游戏结束！</h2>
-            <div className="text-4xl font-bold text-yellow-400 mb-2">{score} 分</div>
-            <div className="text-xl text-amber-300 mb-4">🪙 {coins} 金币</div>
+            <div className="flex items-center justify-center gap-2 text-5xl font-bold text-yellow-400 my-4">
+              <Star className="w-8 h-8" /> {score}
+            </div>
+            <div className="text-xl text-amber-300 mb-2">🪙 {coins} 金币</div>
             
             {!isKnowledgeLearned && reviveKnowledge && (
-              <div className="bg-purple-900/50 rounded-2xl p-4 mb-6 border border-purple-400">
+              <div className="bg-purple-900/70 rounded-2xl p-5 mb-6 border border-purple-400">
                 <h3 className="font-bold text-white mb-3 flex items-center justify-center gap-2">
                   <Star className="w-5 h-5 text-purple-400" /> 学习知识复活
                 </h3>
-                <p className="text-sm text-gray-300 whitespace-pre-line">{reviveKnowledge.content}</p>
+                <p className="text-sm text-gray-300 whitespace-pre-line text-left mb-4">
+                  {reviveKnowledge.content}
+                </p>
                 <button
                   onClick={learnAndRevive}
-                  className="w-full mt-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-2 rounded-full hover:scale-105 transition-transform"
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 rounded-xl hover:scale-105 transition-transform"
                 >
                   我学会了 ✅
                 </button>
@@ -799,13 +869,16 @@ export default function RunGame() {
               <div className="flex flex-col gap-3">
                 <button
                   onClick={revive}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3 px-8 rounded-full hover:scale-105 transition-transform"
+                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3 px-6 rounded-xl hover:scale-105 transition-transform"
                 >
                   ✅ 复活继续
                 </button>
                 <button
-                  onClick={() => navigate('/')}
-                  className="bg-gray-700 text-gray-200 font-bold py-3 px-8 rounded-full hover:scale-105 transition-transform"
+                  onClick={() => {
+                    addScore(score);
+                    navigate('/');
+                  }}
+                  className="bg-gray-700 text-gray-200 font-bold py-3 px-6 rounded-xl hover:scale-105 transition-transform"
                 >
                   返回首页
                 </button>
@@ -816,13 +889,16 @@ export default function RunGame() {
               <div className="flex flex-col gap-3">
                 <button
                   onClick={startGame}
-                  className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold py-3 px-8 rounded-full hover:scale-105 transition-transform"
+                  className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold py-3 px-6 rounded-xl hover:scale-105 transition-transform"
                 >
                   再玩一次
                 </button>
                 <button
-                  onClick={() => navigate('/')}
-                  className="bg-gray-700 text-gray-200 font-bold py-3 px-8 rounded-full hover:scale-105 transition-transform"
+                  onClick={() => {
+                    addScore(score);
+                    navigate('/');
+                  }}
+                  className="bg-gray-700 text-gray-200 font-bold py-3 px-6 rounded-xl hover:scale-105 transition-transform"
                 >
                   返回首页
                 </button>

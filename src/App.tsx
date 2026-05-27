@@ -10,6 +10,8 @@ import MatchingGame from "@/pages/MatchingGame";
 import MinerGame from "@/pages/MinerGame";
 import PuzzleGame from "@/pages/PuzzleGame";
 import HammerGame from "@/pages/HammerGame";
+import TitlesPage from "@/pages/TitlesPage";
+import BadgesPage from "@/pages/BadgesPage";
 
 export default function App() {
   return (
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="/game/miner" element={<MinerGame />} />
         <Route path="/game/puzzle" element={<PuzzleGame />} />
         <Route path="/game/hammer" element={<HammerGame />} />
+        <Route path="/titles" element={<TitlesPage />} />
+        <Route path="/badges" element={<BadgesPage />} />
       </Routes>
     </Router>
   );
