@@ -77,12 +77,17 @@ export default function TitlesPage() {
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl ${
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl relative ${
                     isUnlocked 
-                      ? 'bg-gradient-to-br from-amber-200 to-yellow-300 animate-sparkle' 
-                      : 'bg-gray-200'
+                      ? 'bg-gradient-to-br from-amber-200 to-yellow-300' 
+                      : 'bg-gray-200 grayscale opacity-70'
                   }`}>
-                    {isUnlocked ? t.emoji : '🔒'}
+                    {t.emoji}
+                    {!isUnlocked && (
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center shadow-sm border border-white">
+                        <span className="text-xs">🔒</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1">
                     <h3 className={`text-lg font-bold ${isUnlocked ? t.color : 'text-gray-400'} font-cute`}>

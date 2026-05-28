@@ -322,6 +322,11 @@ const ALL_CARDS: KnowledgeCard[] = [
     content: '设定小目标可以让生活更有方向！\n\n设定目标的好处：\n1. 让自己有努力的方向\n2. 提高自信心\n3. 培养自律能力\n4. 体验成就感\n\n目标要具体、可实现，比如：\n- 每天阅读10页书\n- 每周运动3次\n- 每天帮助别人一件小事\n\n完成目标后给自己一个小奖励！',
     category: 'habit', categoryLabel: '📝 生活习惯', unlocked: false,
   },
+  {
+    id: 'l13', emoji: '🧴', title: '防晒小知识',
+    content: '防晒不只是大人的事，小朋友也需要！\n\n为什么要防晒：\n1. 紫外线会伤害皮肤\n2. 小朋友皮肤更娇嫩，更容易晒伤\n3. 多次晒伤会增加以后患皮肤病的风险\n\n防晒方法：\n1. 出门前15分钟涂抹防晒霜（SPF30以上）\n2. 每2小时补涂一次\n3. 戴帽子和太阳镜\n4. 中午11点到下午3点避免暴晒\n5. 穿长袖浅色衣服\n\n阴天也需要防晒，紫外线可以穿透云层！',
+    category: 'habit', categoryLabel: '📝 生活习惯', unlocked: false,
+  },
 ];
 
 const CATEGORIES = [

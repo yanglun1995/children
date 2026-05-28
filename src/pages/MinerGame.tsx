@@ -61,10 +61,10 @@ export default function MinerGame() {
 
   const generateOptionPositions = () => {
     const positions: OptionPosition[] = [
-      { index: 0, x: 8 + Math.random() * 15, y: 38 + Math.random() * 12 },
-      { index: 1, x: 78 + Math.random() * 15, y: 42 + Math.random() * 12 },
-      { index: 2, x: 12 + Math.random() * 18, y: 68 + Math.random() * 12 },
-      { index: 3, x: 72 + Math.random() * 18, y: 62 + Math.random() * 15 },
+      { index: 0, x: 10 + Math.random() * 12, y: 25 + Math.random() * 10 },
+      { index: 1, x: 78 + Math.random() * 12, y: 25 + Math.random() * 10 },
+      { index: 2, x: 10 + Math.random() * 12, y: 70 + Math.random() * 10 },
+      { index: 3, x: 78 + Math.random() * 12, y: 70 + Math.random() * 10 },
     ];
     return positions;
   };
@@ -148,7 +148,7 @@ export default function MinerGame() {
     setIsHookExtended(true);
     
     const startTime = Date.now();
-    const totalLength = 450;
+    const totalLength = 550;
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / HOOK_EXTEND_DURATION, 1);
@@ -171,11 +171,11 @@ export default function MinerGame() {
     const angle = hookAngle;
     let targetIndex = 0;
     
-    if (angle < -40) {
+    if (angle < -42) {
       targetIndex = 0;
     } else if (angle < 0) {
       targetIndex = 2;
-    } else if (angle < 40) {
+    } else if (angle < 42) {
       targetIndex = 3;
     } else {
       targetIndex = 1;

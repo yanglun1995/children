@@ -437,10 +437,10 @@ export default function RunGame() {
 
       let hitObstacle = false;
 
-      const px = playerXRef.current + 22;
-      const py = playerYRef.current;
-      const pw = 32;
-      const ph = isDuckingRef.current ? 30 : 50;
+      const px = playerXRef.current + 5;
+      const py = playerYRef.current - (isDuckingRef.current ? 28 : 48);
+      const pw = 28;
+      const ph = isDuckingRef.current ? 28 : 48;
 
       objectsRef.current = objectsRef.current.filter(obj => {
         obj.x -= speed;
@@ -590,27 +590,81 @@ export default function RunGame() {
       const isInv = isInvincibleRef.current;
       const dir = playerDirRef.current;
 
-      const playerHeight = isDuck ? 35 : 50;
-
-      ctx.translate(playerX + 15, playerYVal + playerHeight / 2);
-      ctx.scale(dir, 1);
-      
       if (isInv && Math.floor(time / 100) % 2 === 0) {
         ctx.globalAlpha = 0.2;
       }
 
-      ctx.font = isDuck ? '28px Arial' : '45px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      const marioX = playerX;
+      const marioY = playerYVal;
+      const marioW = 30;
+      const marioH = isDuck ? 28 : 48;
 
-      const marioEmoji = isDuck ? '🧎' : '🏃';
-      ctx.fillText(marioEmoji, 0, 0);
+      ctx.translate(marioX + marioW / 2, marioY);
+      ctx.scale(dir, 1);
 
       if (!isDuck) {
-        ctx.font = '18px Arial';
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(-10, -48, 20, 12);
+        ctx.fillStyle = '#FF0000';
+        ctx.beginPath();
+        ctx.arc(0, -48, 10, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-8, -46, 16, 3);
+
+        ctx.fillStyle = '#FFCC99';
+        ctx.fillRect(-9, -36, 18, 14);
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(-5, -33, 3, 3);
+        ctx.fillRect(2, -33, 3, 3);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-4, -34, 1, 1);
+        ctx.fillRect(3, -34, 1, 1);
+
+        ctx.fillStyle = '#FF6666';
+        ctx.fillRect(-3, -27, 6, 2);
+
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-10, -22, 20, 3);
+
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(-10, -19, 20, 12);
+
+        ctx.fillStyle = '#0000FF';
+        ctx.fillRect(-10, -7, 9, 7);
+        ctx.fillRect(1, -7, 9, 7);
+
+        const legOffset = Math.sin(time * 0.01) * 3;
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-10, 0, 8, 5 + legOffset);
+        ctx.fillRect(2, 0, 8, 5 - legOffset);
+
         if (vy < 0) {
-          ctx.fillText('💨', -20, 5);
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.font = '14px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('💨', -18, -10);
         }
+      } else {
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(-10, -28, 20, 8);
+        ctx.beginPath();
+        ctx.arc(0, -28, 8, Math.PI, 0);
+        ctx.fill();
+
+        ctx.fillStyle = '#FFCC99';
+        ctx.fillRect(-9, -20, 18, 10);
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(-5, -17, 3, 2);
+        ctx.fillRect(2, -17, 3, 2);
+
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(-12, -10, 24, 6);
+
+        ctx.fillStyle = '#0000FF';
+        ctx.fillRect(-12, -4, 24, 4);
       }
 
       ctx.restore();
