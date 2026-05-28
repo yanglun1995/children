@@ -61,10 +61,10 @@ export default function MinerGame() {
 
   const generateOptionPositions = () => {
     const positions: OptionPosition[] = [
-      { index: 0, x: 15 + Math.random() * 20, y: 35 + Math.random() * 15 },
-      { index: 1, x: 60 + Math.random() * 20, y: 45 + Math.random() * 15 },
-      { index: 2, x: 25 + Math.random() * 20, y: 65 + Math.random() * 15 },
-      { index: 3, x: 55 + Math.random() * 20, y: 55 + Math.random() * 15 },
+      { index: 0, x: 8 + Math.random() * 15, y: 38 + Math.random() * 12 },
+      { index: 1, x: 78 + Math.random() * 15, y: 42 + Math.random() * 12 },
+      { index: 2, x: 12 + Math.random() * 18, y: 68 + Math.random() * 12 },
+      { index: 3, x: 72 + Math.random() * 18, y: 62 + Math.random() * 15 },
     ];
     return positions;
   };
@@ -349,14 +349,15 @@ export default function MinerGame() {
               >
                 <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-b from-white/50 to-transparent rounded-t-full" />
               </div>
-              <div className={`text-3xl transition-transform duration-200 ${
+              <div className={`text-3xl transition-all duration-200 ${
                 isHookExtended ? 'scale-110' : ''
               }`}>
-                ⛏️
+                🪝
               </div>
-              {isHookExtended && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full shadow-lg animate-pulse">
-                  <div className="absolute inset-1 bg-white/30 rounded-full" />
+              {isHookExtended && isHookRetracting && grabTarget !== null && (
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
+                  <div className="w-10 h-10 bg-gradient-to-br from-yellow-300 to-amber-500 rounded-full animate-ping opacity-75" />
+                  <div className="absolute inset-0 w-10 h-10 bg-yellow-400/30 rounded-full animate-pulse" />
                 </div>
               )}
             </div>
@@ -388,6 +389,22 @@ export default function MinerGame() {
             </div>
 
             <div className="relative z-10 mt-2 px-2 pb-4" style={{ height: '65%' }}>
+              {grabTarget !== null && (() => {
+                const targetPos = optionPositions.find(p => p.index === grabTarget);
+                if (!targetPos) return null;
+                return (
+                  <div className="absolute top-0 left-1/2 z-20 pointer-events-none" style={{ transform: 'translateX(-50%)' }}>
+                    <div 
+                      className="bg-gradient-to-b from-yellow-400/60 to-yellow-500/20"
+                      style={{
+                        width: '3px',
+                        height: `${(targetPos.y - 5)}%`,
+                        boxShadow: '0 0 8px rgba(255,215,0,0.5)',
+                      }}
+                    />
+                  </div>
+                );
+              })()}
               {optionPositions.map((pos) => {
                 const gemEmoji = gemEmojis[gemIndices[pos.index] ?? 0];
                 let optionStyle = 'bg-gradient-to-br from-amber-700 via-yellow-700 to-amber-800 border-2 border-amber-500';
@@ -410,7 +427,7 @@ export default function MinerGame() {
                     className={`absolute rounded-xl border-2 p-3 transition-all duration-300 shadow-lg ${
                       optionStyle
                     } ${
-                      isGrabbed ? 'scale-125 shadow-2xl z-30' : 'shadow-md'
+                      isGrabbed ? 'scale-125 shadow-2xl z-30 ring-2 ring-yellow-300 animate-pulse' : 'shadow-md'
                     } ${
                       selectedAnswer !== null ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'
                     }`}

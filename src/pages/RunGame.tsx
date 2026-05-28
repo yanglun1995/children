@@ -8,7 +8,7 @@ interface GameObject {
   id: number;
   x: number;
   y: number;
-  type: 'obstacle' | 'brick' | 'fruit' | 'coin' | 'mushroom' | 'heart' | 'star';
+  type: 'obstacle' | 'fruit' | 'coin' | 'heart' | 'star';
   emoji: string;
   width: number;
   height: number;
@@ -75,15 +75,15 @@ export default function RunGame() {
   const [score, setScore] = useState(0);
   const [coins, setCoins] = useState(0);
   const [lives, setLives] = useState(3);
-  const [playerX, setPlayerX] = useState(80);
-  const [playerY, setPlayerY] = useState(GROUND_Y);
-  const [playerVy, setPlayerVy] = useState(0);
-  const [playerDir, setPlayerDir] = useState(1);
-  const [isJumping, setIsJumping] = useState(false);
-  const [isInvincible, setIsInvincible] = useState(false);
-  const [gameSpeed, setGameSpeed] = useState(GAME_SPEED_BASE);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isDucking, setIsDucking] = useState(false);
+  
+  const playerXRef = useRef(80);
+  const playerYRef = useRef(GROUND_Y);
+  const playerVyRef = useRef(0);
+  const playerDirRef = useRef(1);
+  const isJumpingRef = useRef(false);
+  const isDuckingRef = useRef(false);
+  const isInvincibleRef = useRef(false);
+  const gameSpeedRef = useRef(GAME_SPEED_BASE);
   
   const objectsRef = useRef<GameObject[]>([]);
   const floatingTextsRef = useRef<FloatingText[]>([]);
@@ -97,7 +97,10 @@ export default function RunGame() {
   const particleIdRef = useRef(0);
   const lastSpawnRef = useRef(0);
   const invincibleTimerRef = useRef<NodeJS.Timeout>();
-  const playerFrameRef = useRef(0);
+  const scoreRef = useRef(0);
+  const coinsRef = useRef(0);
+  const livesRef = useRef(3);
+  const reviveStateRef = useRef<boolean>(false);
 
   const [reviveKnowledge, setReviveKnowledge] = useState<any>(null);
   const [isKnowledgeLearned, setIsKnowledgeLearned] = useState(false);
@@ -140,7 +143,6 @@ export default function RunGame() {
     floatingTextIdRef.current = 0;
     particleIdRef.current = 0;
     lastSpawnRef.current = 0;
-    playerFrameRef.current = 0;
     
     cloudsRef.current = Array.from({ length: 6 }, (_, i) => ({
       x: i * 80 - 50,
@@ -223,13 +225,38 @@ export default function RunGame() {
     return obj;
   }, []);
 
-  const handleJump = useCallback(() => {
-    if (!isJumping) {
-      setPlayerVy(JUMP_FORCE);
-      setIsJumping(true);
-      createParticles(playerX + 25, playerY + 40, '#f59e0b', 8);
-    }
-  }, [isJumping, playerX, playerY]);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState !== 'playing') return;
+      
+      if (e.key === 'ArrowLeft') {
+        playerXRef.current = Math.max(20, playerXRef.current - 18);
+        playerDirRef.current = -1;
+      } else if (e.key === 'ArrowRight') {
+        playerXRef.current = Math.min(CANVAS_WIDTH - 55, playerXRef.current + 18);
+        playerDirRef.current = 1;
+      } else if ((e.key === 'ArrowUp' || e.key === ' ') && !isJumpingRef.current) {
+        playerVyRef.current = JUMP_FORCE;
+        isJumpingRef.current = true;
+        createParticles(playerXRef.current + 25, playerYRef.current + 40, '#f59e0b', 8);
+      } else if (e.key === 'ArrowDown') {
+        isDuckingRef.current = true;
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        isDuckingRef.current = false;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [gameState]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -245,61 +272,39 @@ export default function RunGame() {
     
     if (Math.abs(dx) > Math.abs(dy)) {
       if (dx > 30) {
-        setPlayerX(prev => Math.min(CANVAS_WIDTH - 55, prev + 50));
-        setPlayerDir(1);
-        setIsRunning(true);
+        playerXRef.current = Math.min(CANVAS_WIDTH - 55, playerXRef.current + 50);
+        playerDirRef.current = 1;
       } else if (dx < -30) {
-        setPlayerX(prev => Math.max(20, prev - 50));
-        setPlayerDir(-1);
-        setIsRunning(true);
+        playerXRef.current = Math.max(20, playerXRef.current - 50);
+        playerDirRef.current = -1;
       }
     } else if (dy < -30) {
-      handleJump();
+      if (!isJumpingRef.current) {
+        playerVyRef.current = JUMP_FORCE;
+        isJumpingRef.current = true;
+        createParticles(playerXRef.current + 25, playerYRef.current + 40, '#f59e0b', 8);
+      }
+    } else if (dy > 30) {
+      isDuckingRef.current = true;
+      setTimeout(() => { isDuckingRef.current = false; }, 500);
     }
   };
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState !== 'playing') return;
-      
-      if (e.key === 'ArrowLeft') {
-        setPlayerX(prev => Math.max(20, prev - 18));
-        setPlayerDir(-1);
-        setIsRunning(true);
-      } else if (e.key === 'ArrowRight') {
-        setPlayerX(prev => Math.min(CANVAS_WIDTH - 55, prev + 18));
-        setPlayerDir(1);
-        setIsRunning(true);
-      } else if ((e.key === 'ArrowUp' || e.key === ' ') && !isJumping) {
-        handleJump();
-      } else if (e.key === 'ArrowDown') {
-        setIsDucking(true);
-      }
-    };
-    
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        setIsDucking(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [gameState, isJumping, handleJump]);
-
-  useEffect(() => {
-    if (isRunning) {
-      const timer = setTimeout(() => setIsRunning(false), 200);
-      return () => clearTimeout(timer);
-    }
-  }, [isRunning]);
-
-  useEffect(() => {
     if (gameState !== 'playing') return;
+
+    scoreRef.current = 0;
+    coinsRef.current = 0;
+    livesRef.current = 3;
+    playerXRef.current = 80;
+    playerYRef.current = GROUND_Y;
+    playerVyRef.current = 0;
+    playerDirRef.current = 1;
+    isJumpingRef.current = false;
+    isDuckingRef.current = false;
+    isInvincibleRef.current = false;
+    gameSpeedRef.current = GAME_SPEED_BASE;
+    reviveStateRef.current = false;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -307,10 +312,12 @@ export default function RunGame() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    let lastObstacleHitTime = 0;
+
     const gameLoop = (time: number) => {
       if (gameState !== 'playing') return;
-      
-      playerFrameRef.current++;
+
+      const speed = gameSpeedRef.current;
 
       ctx.fillStyle = '#87CEEB';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -333,7 +340,7 @@ export default function RunGame() {
       ctx.fill();
 
       mountainsRef.current.forEach(m => {
-        m.x -= gameSpeed * 0.15;
+        m.x -= speed * 0.15;
         if (m.x < -200) m.x = CANVAS_WIDTH + 100;
         
         ctx.fillStyle = '#6B8E23';
@@ -352,7 +359,7 @@ export default function RunGame() {
       });
 
       cloudsRef.current.forEach(c => {
-        c.x -= gameSpeed * 0.08;
+        c.x -= speed * 0.08;
         if (c.x < -150) c.x = CANVAS_WIDTH + 100;
         
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
@@ -364,7 +371,7 @@ export default function RunGame() {
       });
 
       treesRef.current.forEach(t => {
-        t.x -= gameSpeed * 0.4;
+        t.x -= speed * 0.4;
         if (t.x < -100) t.x = CANVAS_WIDTH + 80;
         
         ctx.fillStyle = '#8B4513';
@@ -407,42 +414,40 @@ export default function RunGame() {
         ctx.fillRect(x + 5, GROUND_Y + 13, 10, 5);
       }
 
-      if (time - lastSpawnRef.current > 1000 - gameSpeed * 30) {
+      if (time - lastSpawnRef.current > 1000 - speed * 30) {
         objectsRef.current.push(spawnObject(time));
         lastSpawnRef.current = time;
         
-        if (gameSpeed < 15) {
-          setGameSpeed(prev => prev + 0.15);
+        if (gameSpeedRef.current < 15) {
+          gameSpeedRef.current += 0.15;
         }
       }
 
-      setPlayerY(prev => {
-        const newVy = playerVy + GRAVITY;
-        const newY = prev + newVy;
-        
-        if (newY >= GROUND_Y) {
-          setPlayerVy(0);
-          setIsJumping(false);
-          return GROUND_Y;
-        }
-        
-        setPlayerVy(newVy);
-        return newY;
-      });
+      const newVy = playerVyRef.current + GRAVITY;
+      const newY = playerYRef.current + newVy;
+      
+      if (newY >= GROUND_Y) {
+        playerYRef.current = GROUND_Y;
+        playerVyRef.current = 0;
+        isJumpingRef.current = false;
+      } else {
+        playerYRef.current = newY;
+        playerVyRef.current = newVy;
+      }
 
       let hitObstacle = false;
 
+      const px = playerXRef.current + 22;
+      const py = playerYRef.current;
+      const pw = 32;
+      const ph = isDuckingRef.current ? 30 : 50;
+
       objectsRef.current = objectsRef.current.filter(obj => {
-        obj.x -= gameSpeed;
+        obj.x -= speed;
         
         if (obj.coinPhase !== undefined) {
           obj.coinPhase += 0.15;
         }
-
-        const px = playerX + 22;
-        const py = playerY;
-        const pw = 32;
-        const ph = isDucking ? 30 : 50;
 
         const ox = obj.x;
         const oy = obj.y;
@@ -453,29 +458,32 @@ export default function RunGame() {
           createParticles(obj.x + obj.width / 2, obj.y + obj.height / 2, '#FFA500', 12);
           
           if (obj.type === 'obstacle') {
-            if (!isInvincible) {
+            if (!isInvincibleRef.current) {
               hitObstacle = true;
             }
           } else if (obj.type === 'fruit') {
-            const newScore = score + 15;
-            setScore(newScore);
+            scoreRef.current += 15;
+            setScore(scoreRef.current);
             createFloatingText(obj.x, obj.y, '+15');
             createParticles(obj.x + obj.width / 2, obj.y, '#FF69B4', 8);
             return false;
           } else if (obj.type === 'coin') {
-            setCoins(prev => prev + 1);
-            setScore(prev => prev + 8);
+            coinsRef.current += 1;
+            scoreRef.current += 8;
+            setCoins(coinsRef.current);
+            setScore(scoreRef.current);
             createFloatingText(obj.x, obj.y, '+8');
             createParticles(obj.x + obj.width / 2, obj.y, '#FFD700', 6);
             return false;
           } else if (obj.type === 'star') {
-            const newScore = score + 30;
-            setScore(newScore);
+            scoreRef.current += 30;
+            setScore(scoreRef.current);
             createFloatingText(obj.x, obj.y, '+30');
             createParticles(obj.x + obj.width / 2, obj.y, '#FFFF00', 15);
             return false;
           } else if (obj.type === 'heart') {
-            setLives(prev => Math.min(prev + 1, 5));
+            livesRef.current = Math.min(livesRef.current + 1, 5);
+            setLives(livesRef.current);
             createFloatingText(obj.x, obj.y, '+1❤️');
             createParticles(obj.x + obj.width / 2, obj.y, '#FF6B6B', 10);
             return false;
@@ -498,19 +506,23 @@ export default function RunGame() {
         return obj.x > -120 && !obj.hit;
       });
 
-      if (hitObstacle) {
-        const newLives = lives - 1;
-        setLives(newLives);
-        if (newLives <= 0) {
+      if (hitObstacle && time - lastObstacleHitTime > 500) {
+        lastObstacleHitTime = time;
+        livesRef.current -= 1;
+        setLives(livesRef.current);
+        if (livesRef.current <= 0) {
           setReviveKnowledge(getRandomKnowledge());
           setIsKnowledgeLearned(false);
           setGameState('gameover');
+          return;
         } else {
-          setIsInvincible(true);
-          setTimeout(() => setIsInvincible(false), 3000);
-          createParticles(playerX + 25, playerY + 20, '#FF6B6B', 20);
+          isInvincibleRef.current = true;
+          if (invincibleTimerRef.current) clearTimeout(invincibleTimerRef.current);
+          invincibleTimerRef.current = setTimeout(() => {
+            isInvincibleRef.current = false;
+          }, 3000);
+          createParticles(playerXRef.current + 25, playerYRef.current + 20, '#FF6B6B', 20);
         }
-        return;
       }
 
       floatingTextsRef.current = floatingTextsRef.current.filter(ft => {
@@ -569,35 +581,38 @@ export default function RunGame() {
         ctx.globalAlpha = 1;
       });
 
-      const frameCount = Math.floor(time / 150);
-      
       ctx.save();
       
-      const playerYPos = playerY;
-      const playerHeight = isDucking ? 35 : 50;
-      const playerWidth = isDucking ? 30 : 30;
+      const vy = playerVyRef.current;
+      const playerX = playerXRef.current;
+      const playerYVal = playerYRef.current;
+      const isDuck = isDuckingRef.current;
+      const isInv = isInvincibleRef.current;
+      const dir = playerDirRef.current;
+
+      const playerHeight = isDuck ? 35 : 50;
+
+      ctx.translate(playerX + 15, playerYVal + playerHeight / 2);
+      ctx.scale(dir, 1);
       
-      ctx.translate(playerX + 15, playerYPos + playerHeight / 2);
-      ctx.scale(playerDir, 1);
-      
-      if (isInvincible && Math.floor(time / 100) % 2 === 0) {
-        ctx.globalAlpha = 0.3;
+      if (isInv && Math.floor(time / 100) % 2 === 0) {
+        ctx.globalAlpha = 0.2;
       }
-      
-      ctx.font = isDucking ? '28px Arial' : '45px Arial';
+
+      ctx.font = isDuck ? '28px Arial' : '45px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      
-      const marioEmoji = isDucking ? '🧎' : '🏃';
+
+      const marioEmoji = isDuck ? '🧎' : '🏃';
       ctx.fillText(marioEmoji, 0, 0);
-      
-      if (!isDucking) {
+
+      if (!isDuck) {
         ctx.font = '18px Arial';
-        if (isJumping) {
+        if (vy < 0) {
           ctx.fillText('💨', -20, 5);
         }
       }
-      
+
       ctx.restore();
 
       animationRef.current = requestAnimationFrame(gameLoop);
@@ -610,7 +625,7 @@ export default function RunGame() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, spawnObject, playerVy, score, isInvincible, gameSpeed, playerDir, lives, isDucking]);
+  }, [gameState, spawnObject]);
 
   const learnAndRevive = () => {
     if (reviveKnowledge) {
@@ -621,14 +636,17 @@ export default function RunGame() {
   const revive = () => {
     initGame();
     setGameState('playing');
-    setPlayerX(80);
-    setPlayerY(GROUND_Y);
-    setPlayerVy(0);
-    setIsJumping(false);
-    setIsInvincible(false);
-    setGameSpeed(GAME_SPEED_BASE);
+    playerXRef.current = 80;
+    playerYRef.current = GROUND_Y;
+    playerVyRef.current = 0;
+    isJumpingRef.current = false;
+    isInvincibleRef.current = false;
+    gameSpeedRef.current = GAME_SPEED_BASE;
+    isDuckingRef.current = false;
+    livesRef.current = 3;
     setLives(3);
-    setIsDucking(false);
+    setScore(scoreRef.current);
+    setCoins(coinsRef.current);
   };
 
   const startGame = () => {
@@ -636,13 +654,16 @@ export default function RunGame() {
     setScore(0);
     setCoins(0);
     setLives(3);
-    setPlayerX(80);
-    setPlayerY(GROUND_Y);
-    setPlayerVy(0);
-    setIsJumping(false);
-    setIsInvincible(false);
-    setGameSpeed(GAME_SPEED_BASE);
-    setIsDucking(false);
+    playerXRef.current = 80;
+    playerYRef.current = GROUND_Y;
+    playerVyRef.current = 0;
+    isJumpingRef.current = false;
+    isInvincibleRef.current = false;
+    gameSpeedRef.current = GAME_SPEED_BASE;
+    isDuckingRef.current = false;
+    scoreRef.current = 0;
+    coinsRef.current = 0;
+    livesRef.current = 3;
     setGameState('playing');
   };
 
