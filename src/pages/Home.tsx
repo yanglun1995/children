@@ -200,28 +200,22 @@ export default function Home() {
                   {game.badge}
                 </span>
               )}
-              
-              <div className="absolute top-0 right-0 w-20 h-20 opacity-20 pointer-events-none">
-                <div className="absolute top-2 right-2 w-16 h-16 rounded-full" style={{ background: game.accent }} />
-              </div>
 
-              <div className="absolute bottom-0 right-0 w-[72px] h-[72px] overflow-hidden">
-                <img
-                  src={game.img}
-                  alt={game.name}
-                  className="w-full h-full object-cover object-center opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, transparent 30%, ${game.accent}44 100%)` }} />
-              </div>
+              <img
+                src={game.img}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover object-center opacity-25 group-hover:opacity-35 transition-opacity duration-300"
+                loading="lazy"
+              />
 
-              <div className="relative p-3 pb-3">
-                <div className="text-2xl mb-1 group-hover:scale-110 transition-transform drop-shadow-lg">{game.emoji}</div>
-                <h4 className="text-white font-bold text-[13px] font-cute drop-shadow-sm leading-tight">{game.name}</h4>
-                <p className="text-white/60 text-[9px] mt-0.5">{game.desc}</p>
-              </div>
+              <div className="absolute inset-0" style={{ background: `${game.bg.split('100%')[0]}100%)` }} />
+              <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${game.accent}00 0%, ${game.accent}33 100%)` }} />
 
-              <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: game.accent, opacity: 0.6 }} />
+              <div className="relative p-4 z-10">
+                <div className="text-3xl mb-2 group-hover:scale-110 transition-transform drop-shadow-lg">{game.emoji}</div>
+                <h4 className="text-white font-bold text-sm font-cute drop-shadow-sm leading-tight">{game.name}</h4>
+                <p className="text-white/70 text-[10px] mt-0.5">{game.desc}</p>
+              </div>
             </Link>
           ))}
         </div>
