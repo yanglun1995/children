@@ -1,15 +1,57 @@
 import { Link } from 'react-router-dom';
 import { useGameStore } from '@/stores/gameStore';
 
+const LOGO_IMG = 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20kawaii%20chibi%20child%20explorer%20adventurer%20with%20safari%20hat%20binoculars%20backpack%20flat%20illustration%20colorful%20white%20background&image_size=square_hd';
+
 const games = [
-  { id: 'run', name: '超级马里奥', emoji: '🍄', bg: 'from-green-500 via-emerald-400 to-teal-500', badge: '🔥 热门', path: '/game/run', desc: '跑酷冒险', illustration: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20mario%20character%20running%20on%20green%20grass%20flat%20illustration%20kawaii%20game%20style%20white%20background&image_size=square' },
-  { id: 'fruit-slice', name: '切水果', emoji: '🍎', bg: 'from-red-500 via-rose-400 to-pink-500', badge: null, path: '/game/fruit-slice', desc: '手速挑战', illustration: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20fruit%20ninja%20slicing%20watermelon%20apple%20orange%20flat%20illustration%20kawaii%20game%20style%20white%20background&image_size=square' },
-  { id: 'quiz', name: '知识擂台', emoji: '⚔️', bg: 'from-purple-500 via-violet-400 to-indigo-500', badge: null, path: '/game/quiz', desc: '知识对决', illustration: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20kids%20quiz%20battle%20with%20books%20and%20lightning%20flat%20illustration%20kawaii%20game%20style%20white%20background&image_size=square' },
-  { id: 'doctor', name: '小医生', emoji: '👨‍⚕️', bg: 'from-blue-500 via-sky-400 to-cyan-500', badge: null, path: '/game/doctor', desc: '诊断达人', illustration: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20child%20doctor%20with%20stethoscope%20and%20medicine%20flat%20illustration%20kawaii%20game%20style%20white%20background&image_size=square' },
-  { id: 'miner', name: '黄金矿工', emoji: '⛏️', bg: 'from-amber-500 via-yellow-400 to-orange-500', badge: null, path: '/game/miner', desc: '挖宝答题', illustration: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20miner%20with%20pickaxe%20and%20gold%20gems%20flat%20illustration%20kawaii%20game%20style%20white%20background&image_size=square' },
-  { id: 'matching', name: '连连看', emoji: '🔗', bg: 'from-teal-500 via-emerald-400 to-green-500', badge: null, path: '/game/matching', desc: '配对挑战', illustration: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20puzzle%20matching%20game%20with%20colorful%20cards%20flat%20illustration%20kawaii%20game%20style%20white%20background&image_size=square' },
-  { id: 'puzzle', name: '拼拼图', emoji: '🧩', bg: 'from-indigo-500 via-blue-400 to-purple-500', badge: null, path: '/game/puzzle', desc: '拼图益智', illustration: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20jigsaw%20puzzle%20pieces%20colorful%20flat%20illustration%20kawaii%20game%20style%20white%20background&image_size=square' },
-  { id: 'hammer', name: '打地鼠', emoji: '🔨', bg: 'from-orange-500 via-amber-400 to-red-500', badge: null, path: '/game/hammer', desc: '反应速度', illustration: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20whack%20a%20mole%20game%20hammer%20and%20cute%20mole%20flat%20illustration%20kawaii%20game%20style%20white%20background&image_size=square' },
+  {
+    id: 'run', name: '超级马里奥', emoji: '🍄', path: '/game/run', badge: '🔥 热门', desc: '跑酷冒险',
+    bg: 'linear-gradient(135deg, #22c55e 0%, #10b981 50%, #14b8a6 100%)',
+    accent: '#86efac',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20super%20mario%20character%20jumping%20on%20green%20pipe%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+  },
+  {
+    id: 'fruit-slice', name: '切水果', emoji: '🍎', path: '/game/fruit-slice', badge: null, desc: '手速挑战',
+    bg: 'linear-gradient(135deg, #ef4444 0%, #f43f5e 50%, #ec4899 100%)',
+    accent: '#fca5a5',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20fruit%20ninja%20slicing%20watermelon%20and%20apple%20with%20katana%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+  },
+  {
+    id: 'quiz', name: '知识擂台', emoji: '⚔️', path: '/game/quiz', badge: null, desc: '知识对决',
+    bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6366f1 100%)',
+    accent: '#c4b5fd',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20kids%20quiz%20battle%20with%20lightning%20and%20books%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+  },
+  {
+    id: 'doctor', name: '小医生', emoji: '👨‍⚕️', path: '/game/doctor', badge: null, desc: '诊断达人',
+    bg: 'linear-gradient(135deg, #3b82f6 0%, #0ea5e9 50%, #06b6d4 100%)',
+    accent: '#93c5fd',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20child%20doctor%20with%20stethoscope%20and%20first%20aid%20kit%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+  },
+  {
+    id: 'miner', name: '黄金矿工', emoji: '⛏️', path: '/game/miner', badge: null, desc: '挖宝答题',
+    bg: 'linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%)',
+    accent: '#fde68a',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20gold%20miner%20with%20pickaxe%20diamond%20and%20gold%20nugget%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+  },
+  {
+    id: 'matching', name: '连连看', emoji: '🔗', path: '/game/matching', badge: null, desc: '配对挑战',
+    bg: 'linear-gradient(135deg, #14b8a6 0%, #10b981 50%, #22c55e 100%)',
+    accent: '#99f6e4',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20matching%20game%20with%20colorful%20memory%20cards%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+  },
+  {
+    id: 'puzzle', name: '拼拼图', emoji: '🧩', path: '/game/puzzle', badge: null, desc: '拼图益智',
+    bg: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
+    accent: '#c7d2fe',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20jigsaw%20puzzle%20pieces%20colorful%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+  },
+  {
+    id: 'hammer', name: '打地鼠', emoji: '🔨', path: '/game/hammer', badge: null, desc: '反应速度',
+    bg: 'linear-gradient(135deg, #f97316 0%, #ef4444 50%, #dc2626 100%)',
+    accent: '#fed7aa',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20whack%20a%20mole%20game%20with%20hammer%20and%20funny%20mole%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+  },
 ];
 
 const getTitle = (score: number) => {
@@ -23,20 +65,15 @@ const getTitle = (score: number) => {
     { minScore: 1800, title: '健康超级英雄', emoji: '🌟', color: 'text-amber-500' },
     { minScore: 2500, title: '健康王者', emoji: '👑', color: 'text-yellow-400' },
   ];
-  
   let currentTitle = titles[0];
   for (const title of titles) {
-    if (score >= title.minScore) {
-      currentTitle = title;
-    }
+    if (score >= title.minScore) currentTitle = title;
   }
   return currentTitle;
 };
 
 const getLevelTitle = (level: number) => {
-  const levelTitles = [
-    '幼苗', '小苗', '青芽', '嫩枝', '树苗', '小树', '大树', '古树', '参天树', '神树'
-  ];
+  const levelTitles = ['幼苗', '小苗', '青芽', '嫩枝', '树苗', '小树', '大树', '古树', '参天树', '神树'];
   return levelTitles[Math.min(level - 1, levelTitles.length - 1)];
 };
 
@@ -45,13 +82,11 @@ export default function Home() {
   const currentTitle = getTitle(user.totalScore);
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-green-50 via-emerald-50 to-teal-50 overflow-auto pb-24 safe-bottom">
+    <div className="min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50 to-rose-50 overflow-auto pb-24 safe-bottom">
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-sm shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg float-anim">
-              <span className="text-xl">🧭</span>
-            </div>
+            <img src={LOGO_IMG} alt="logo" className="w-10 h-10 rounded-xl shadow-lg object-cover" />
             <div>
               <h1 className="text-base font-bold text-amber-700 font-cute">小小健康探险家</h1>
               <p className="text-[9px] text-amber-400 -mt-0.5">玩出健康好习惯</p>
@@ -157,31 +192,36 @@ export default function Home() {
             <Link
               key={game.id}
               to={game.path}
-              className={`relative bg-gradient-to-br ${game.bg} rounded-2xl shadow-md hover:scale-[1.02] active:scale-[0.97] transition-all duration-150 group overflow-hidden`}
-              style={{ animationDelay: `${i * 50}ms` }}
+              className="relative rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 group overflow-hidden"
+              style={{ background: game.bg }}
             >
-              <div className="absolute inset-0 opacity-[0.06] pointer-events-none select-none"
-                style={{
-                  backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 12px)`,
-                }}
-              />
-              <img
-                src={game.illustration}
-                alt={game.name}
-                className="absolute -bottom-1 -right-1 w-16 h-16 object-contain opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 drop-shadow-lg"
-                loading="lazy"
-              />
               {game.badge && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-pulse z-10">
+                <span className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-pulse z-20">
                   {game.badge}
                 </span>
               )}
-              <div className="relative p-4 pr-12">
-                <div className="text-3xl mb-1.5 group-hover:animate-bounce-subtle drop-shadow-lg">{game.emoji}</div>
-                <h4 className="text-white font-bold text-sm font-cute drop-shadow-sm">{game.name}</h4>
-                <p className="text-white/70 text-[10px] mt-0.5">{game.desc}</p>
+              
+              <div className="absolute top-0 right-0 w-20 h-20 opacity-20 pointer-events-none">
+                <div className="absolute top-2 right-2 w-16 h-16 rounded-full" style={{ background: game.accent }} />
               </div>
-              <div className="absolute inset-0 bg-white/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+
+              <div className="absolute bottom-0 right-0 w-[72px] h-[72px] overflow-hidden">
+                <img
+                  src={game.img}
+                  alt={game.name}
+                  className="w-full h-full object-cover object-center opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, transparent 30%, ${game.accent}44 100%)` }} />
+              </div>
+
+              <div className="relative p-3 pb-3">
+                <div className="text-2xl mb-1 group-hover:scale-110 transition-transform drop-shadow-lg">{game.emoji}</div>
+                <h4 className="text-white font-bold text-[13px] font-cute drop-shadow-sm leading-tight">{game.name}</h4>
+                <p className="text-white/60 text-[9px] mt-0.5">{game.desc}</p>
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: game.accent, opacity: 0.6 }} />
             </Link>
           ))}
         </div>
