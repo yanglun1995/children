@@ -2,14 +2,14 @@ import { Link } from 'react-router-dom';
 import { useGameStore } from '@/stores/gameStore';
 
 const games = [
-  { id: 'run', name: '超级马里奥', emoji: '🍄', bg: 'from-green-400 to-emerald-500', badge: '🔥 热门', path: '/game/run' },
-  { id: 'fruit-slice', name: '切水果', emoji: '🍎', bg: 'from-red-400 to-orange-500', badge: null, path: '/game/fruit-slice' },
-  { id: 'quiz', name: '知识擂台', emoji: '⚔️', bg: 'from-purple-400 to-pink-500', badge: null, path: '/game/quiz' },
-  { id: 'doctor', name: '小医生', emoji: '👨‍⚕️', bg: 'from-blue-400 to-cyan-500', badge: null, path: '/game/doctor' },
-  { id: 'miner', name: '黄金矿工', emoji: '⛏️', bg: 'from-amber-400 to-yellow-500', badge: null, path: '/game/miner' },
-  { id: 'matching', name: '连连看', emoji: '🔗', bg: 'from-teal-400 to-cyan-500', badge: null, path: '/game/matching' },
-  { id: 'puzzle', name: '拼拼图', emoji: '🧩', bg: 'from-indigo-400 to-purple-500', badge: null, path: '/game/puzzle' },
-  { id: 'hammer', name: '打地鼠', emoji: '🔨', bg: 'from-orange-400 to-red-500', badge: null, path: '/game/hammer' },
+  { id: 'run', name: '超级马里奥', emoji: '🍄', bg: 'from-green-500 via-emerald-400 to-teal-500', badge: '🔥 热门', path: '/game/run', pattern: '🍄⭐🍄⭐', desc: '跑酷冒险' },
+  { id: 'fruit-slice', name: '切水果', emoji: '🍎', bg: 'from-red-500 via-rose-400 to-pink-500', badge: null, path: '/game/fruit-slice', pattern: '🍎🍊🍋🍇', desc: '手速挑战' },
+  { id: 'quiz', name: '知识擂台', emoji: '⚔️', bg: 'from-purple-500 via-violet-400 to-indigo-500', badge: null, path: '/game/quiz', pattern: '⚔️🧠⚔️🧠', desc: '知识对决' },
+  { id: 'doctor', name: '小医生', emoji: '👨‍⚕️', bg: 'from-blue-500 via-sky-400 to-cyan-500', badge: null, path: '/game/doctor', pattern: '💊🩺💊🩺', desc: '诊断达人' },
+  { id: 'miner', name: '黄金矿工', emoji: '⛏️', bg: 'from-amber-500 via-yellow-400 to-orange-500', badge: null, path: '/game/miner', pattern: '💎💰⛏️🪙', desc: '挖宝答题' },
+  { id: 'matching', name: '连连看', emoji: '🔗', bg: 'from-teal-500 via-emerald-400 to-green-500', badge: null, path: '/game/matching', pattern: '🔗🎯🔗🎯', desc: '配对挑战' },
+  { id: 'puzzle', name: '拼拼图', emoji: '🧩', bg: 'from-indigo-500 via-blue-400 to-purple-500', badge: null, path: '/game/puzzle', pattern: '🧩🖼️🧩🖼️', desc: '拼图益智' },
+  { id: 'hammer', name: '打地鼠', emoji: '🔨', bg: 'from-orange-500 via-amber-400 to-red-500', badge: null, path: '/game/hammer', pattern: '🔨🐹🔨🐹', desc: '反应速度' },
 ];
 
 const getTitle = (score: number) => {
@@ -50,10 +50,10 @@ export default function Home() {
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg float-anim">
-              <span className="text-xl">🦸</span>
+              <span className="text-xl">🌿</span>
             </div>
             <div>
-              <h1 className="text-base font-bold text-emerald-700 font-cute">健康小超人</h1>
+              <h1 className="text-base font-bold text-emerald-700 font-cute">萌娃健康岛</h1>
               <p className="text-[9px] text-emerald-400 -mt-0.5">玩出健康好习惯</p>
             </div>
           </div>
@@ -78,8 +78,8 @@ export default function Home() {
 
       <div className="mx-4 mt-4 mb-3">
         <div className="relative bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-400 rounded-3xl px-5 py-6 overflow-hidden shadow-xl">
-          <div className="absolute -top-8 -right-6 text-9xl opacity-20 select-none">🦸</div>
-          <div className="absolute -bottom-6 -left-6 text-8xl opacity-10 select-none">💪</div>
+          <div className="absolute -top-8 -right-6 text-9xl opacity-20 select-none">🌿</div>
+          <div className="absolute -bottom-6 -left-6 text-8xl opacity-10 select-none">🏝️</div>
           <div className="absolute top-2 right-8 text-2xl animate-float">✨</div>
           <div className="absolute bottom-8 right-4 text-xl animate-float" style={{ animationDelay: '0.5s' }}>⭐</div>
           
@@ -92,7 +92,7 @@ export default function Home() {
           </div>
           
           <h2 className="text-lg font-bold text-white font-cute mb-2">
-            {user.totalScore > 0 ? '太棒了，继续加油！' : '欢迎来到健康小超人！'}
+            {user.totalScore > 0 ? '太棒了，继续加油！' : '欢迎来到萌娃健康岛！'}
           </h2>
           <p className="text-emerald-100 text-xs mb-4 leading-relaxed">
             {user.badges.length > 0 
@@ -157,16 +157,32 @@ export default function Home() {
             <Link
               key={game.id}
               to={game.path}
-              className={`relative bg-gradient-to-br ${game.bg} rounded-2xl p-4 shadow-md hover:scale-[1.02] active:scale-[0.97] transition-all duration-150 group`}
+              className={`relative bg-gradient-to-br ${game.bg} rounded-2xl shadow-md hover:scale-[1.02] active:scale-[0.97] transition-all duration-150 group overflow-hidden`}
               style={{ animationDelay: `${i * 50}ms` }}
             >
+              <div className="absolute inset-0 opacity-[0.08] pointer-events-none select-none"
+                style={{
+                  backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.3) 10px, rgba(255,255,255,0.3) 12px)`,
+                }}
+              />
+              <div className="absolute -bottom-2 -right-2 text-5xl opacity-20 select-none group-hover:opacity-30 transition-opacity">
+                {game.emoji}
+              </div>
+              <div className="absolute top-2 right-2 flex gap-0.5 opacity-30">
+                {game.pattern.split('').map((ch, ci) => (
+                  <span key={ci} className="text-[8px]">{ch}</span>
+                ))}
+              </div>
               {game.badge && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-pulse">
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-pulse z-10">
                   {game.badge}
                 </span>
               )}
-              <div className="text-3xl mb-1.5 group-hover:animate-bounce-subtle">{game.emoji}</div>
-              <h4 className="text-white font-bold text-sm font-cute">{game.name}</h4>
+              <div className="relative p-4">
+                <div className="text-3xl mb-1.5 group-hover:animate-bounce-subtle drop-shadow-lg">{game.emoji}</div>
+                <h4 className="text-white font-bold text-sm font-cute drop-shadow-sm">{game.name}</h4>
+                <p className="text-white/70 text-[10px] mt-0.5">{game.desc}</p>
+              </div>
               <div className="absolute inset-0 bg-white/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
           ))}
@@ -214,7 +230,7 @@ export default function Home() {
       </div>
 
       <div className="text-center mt-6 text-gray-400 text-[10px] px-4">
-        <p>💪 玩游戏学知识，做个健康小超人！</p>
+        <p>💪 玩游戏学知识，做个健康小达人！</p>
         <p className="mt-1">健康知识，从我做起！🌱</p>
       </div>
     </div>
