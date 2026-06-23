@@ -4,166 +4,156 @@ import { useGameStore } from '@/stores/gameStore';
 import { ArrowLeft, Pause, Play, RotateCcw, BookOpen, CheckCircle } from 'lucide-react';
 import { knowledgeCards } from '@/data/questions';
 
-interface Fruit {
+const FRUIT_EMOJIS = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉', '🍍', '🥭', '🍐', '🍏'];
+const BACTERIA_EMOJIS = ['🦠', '🤢', '💀'];
+
+interface FruitItem {
   id: number;
   x: number;
   y: number;
-  vx: number;
-  vy: number;
-  radius: number;
   emoji: string;
   type: 'fruit' | 'bacteria';
-  rotation: number;
-  rotationSpeed: number;
-}
-
-interface SlicedFruit {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  emoji: string;
-  rotation: number;
-  rotationSpeed: number;
-  opacity: number;
 }
 
 export default function FruitSliceGame() {
   const navigate = useNavigate();
   const { addScore, addBadge, addKnowledgeCard } = useGameStore();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number>();
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover' | 'revive'>('menu');
+  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover'>('menu');
   const [score, setScore] = useState(0);
-  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [fruits, setFruits] = useState<FruitItem[]>([]);
   const [reviveKnowledge, setReviveKnowledge] = useState<any>(null);
   const [isKnowledgeLearned, setIsKnowledgeLearned] = useState(false);
+  const [slicedIds, setSlicedIds] = useState<Set<number>>(new Set());
   
-  const fruitsRef = useRef<Fruit[]>([]);
-  const slicedFruitsRef = useRef<SlicedFruit[]>([]);
-  const sliceTrailRef = useRef<{ points: { x: number; y: number }[]; opacity: number }>({ points: [], opacity: 1 });
-  const lastSpawnRef = useRef(0);
+  const animationRef = useRef<number>(0);
   const fruitIdRef = useRef(0);
+  const lastSpawnRef = useRef(0);
+  const gameStateRef = useRef(gameState);
+  const fruitsRef = useRef<FruitItem[]>([]);
+  const velocitiesRef = useRef<Map<number, { vx: number; vy: number; rotation: number; rotationSpeed: number }>>(new Map());
+  const containerHeightRef = useRef(0);
+  const containerWidthRef = useRef(0);
 
-  const fruitEmojis = [
-    '🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉',
-    '🍍', '🥭', '🍐', '🍏', '🍈', '🫐', '🥥', '🍅', '🥑'
-  ];
-  const bacteriaEmojis = ['🦠', '🤢', '💀', '☠️'];
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
-  const getRandomKnowledge = () => {
-    return knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
-  };
+  const getRandomKnowledge = () => knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
 
-  const createFruit = useCallback((canvasWidth: number, canvasHeight: number): Fruit => {
+  const spawnFruit = useCallback(() => {
     const isBacteria = Math.random() < 0.15;
-    const emoji = isBacteria
-      ? bacteriaEmojis[Math.floor(Math.random() * bacteriaEmojis.length)]
-      : fruitEmojis[Math.floor(Math.random() * fruitEmojis.length)];
-    
+    const emojiArr = isBacteria ? BACTERIA_EMOJIS : FRUIT_EMOJIS;
+    const emoji = emojiArr[Math.floor(Math.random() * emojiArr.length)];
     const side = Math.random() < 0.5 ? -1 : 1;
-    const x = Math.random() * (canvasWidth * 0.7) + canvasWidth * 0.15;
+    const id = fruitIdRef.current++;
+    const x = containerWidthRef.current * 0.2 + Math.random() * containerWidthRef.current * 0.6;
+    const vy = -(Math.random() * 4 + 10);
     
-    return {
-      id: fruitIdRef.current++,
+    fruitsRef.current = [...fruitsRef.current, {
+      id,
       x,
-      y: canvasHeight + 50,
-      vx: (Math.random() - 0.5) * 6 * side,
-      vy: -(Math.random() * 5 + 12),
-      radius: 45,
+      y: containerHeightRef.current + 60,
       emoji,
       type: isBacteria ? 'bacteria' : 'fruit',
+    }];
+    
+    velocitiesRef.current.set(id, {
+      vx: (Math.random() - 0.5) * 5 * side,
+      vy,
       rotation: 0,
-      rotationSpeed: (Math.random() - 0.5) * 0.2,
-    };
+      rotationSpeed: (Math.random() - 0.5) * 0.15,
+    });
+    
+    setFruits([...fruitsRef.current]);
   }, []);
 
-  const sliceFruit = useCallback((fruit: Fruit): { newSliced: SlicedFruit[]; scoreChange: number; isBacteria: boolean } => {
-    if (fruit.type === 'bacteria') {
-      return { newSliced: [], scoreChange: 0, isBacteria: true };
+  const gameLoop = useCallback((timestamp: number) => {
+    if (gameStateRef.current !== 'playing') return;
+
+    if (timestamp - lastSpawnRef.current > 800) {
+      spawnFruit();
+      lastSpawnRef.current = timestamp;
     }
 
-    const newSliced: SlicedFruit[] = [
-      { id: fruit.id, x: fruit.x, y: fruit.y, vx: fruit.vx - 3, vy: fruit.vy - 2, emoji: fruit.emoji, rotation: fruit.rotation, rotationSpeed: -0.2, opacity: 1 },
-      { id: fruit.id + 1000, x: fruit.x, y: fruit.y, vx: fruit.vx + 3, vy: fruit.vy - 2, emoji: fruit.emoji, rotation: fruit.rotation, rotationSpeed: 0.2, opacity: 1 },
-    ];
-
-    return { newSliced, scoreChange: 10, isBacteria: false };
-  }, []);
-
-  const checkSlice = useCallback((x: number, y: number) => {
-    if (gameState !== 'playing') return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvasSize.width / rect.width;
-    const scaleY = canvasSize.height / rect.height;
-    const canvasX = x * scaleX;
-    const canvasY = y * scaleY;
-
-    const toRemove: number[] = [];
-    let scoreChange = 0;
-    let hitBacteria = false;
-
+    const newFruits: FruitItem[] = [];
     fruitsRef.current.forEach((fruit) => {
-      const dx = canvasX - fruit.x;
-      const dy = canvasY - fruit.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < fruit.radius + 25) {
-        const result = sliceFruit(fruit);
-        slicedFruitsRef.current = [...slicedFruitsRef.current, ...result.newSliced];
-        scoreChange += result.scoreChange;
-        if (result.isBacteria) hitBacteria = true;
-        toRemove.push(fruit.id);
+      const vel = velocitiesRef.current.get(fruit.id);
+      if (!vel) return;
+      
+      const newVy = vel.vy + 0.25;
+      const newX = fruit.x + vel.vx;
+      const newY = fruit.y + newVy;
+      const newRotation = vel.rotation + vel.rotationSpeed;
+      
+      if (newY < containerHeightRef.current + 100 && newY > -100) {
+        newFruits.push({ ...fruit, x: newX, y: newY });
+        velocitiesRef.current.set(fruit.id, { ...vel, vy: newVy, rotation: newRotation });
+      } else {
+        velocitiesRef.current.delete(fruit.id);
       }
     });
-
-    fruitsRef.current = fruitsRef.current.filter((f) => !toRemove.includes(f.id));
-    setScore((prev) => prev + scoreChange);
     
-    if (hitBacteria) {
+    fruitsRef.current = newFruits;
+    setFruits([...newFruits]);
+
+    animationRef.current = requestAnimationFrame(gameLoop);
+  }, [spawnFruit]);
+
+  useEffect(() => {
+    if (gameState !== 'playing') {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      return;
+    }
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    containerWidthRef.current = rect.width;
+    containerHeightRef.current = rect.height;
+
+    lastSpawnRef.current = 0;
+    animationRef.current = requestAnimationFrame(gameLoop);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [gameState, gameLoop]);
+
+  const handleSlice = (e: React.MouseEvent | React.TouchEvent, fruitId: number) => {
+    e.stopPropagation();
+    if (gameStateRef.current !== 'playing') return;
+    if (slicedIds.has(fruitId)) return;
+
+    const fruit = fruitsRef.current.find(f => f.id === fruitId);
+    if (!fruit) return;
+
+    setSlicedIds(prev => new Set([...prev, fruitId]));
+
+    if (fruit.type === 'bacteria') {
       setReviveKnowledge(getRandomKnowledge());
       setIsKnowledgeLearned(false);
+      gameStateRef.current = 'gameover';
       setGameState('gameover');
+    } else {
+      setScore(prev => prev + 10);
     }
-  }, [gameState, canvasSize, sliceFruit]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (gameState !== 'playing') return;
-    const touch = e.touches[0];
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    sliceTrailRef.current = { points: [{ x: touch.clientX - rect.left, y: touch.clientY - rect.top }], opacity: 1 };
-    checkSlice(touch.clientX - rect.left, touch.clientY - rect.top);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (gameState !== 'playing') return;
-    const touch = e.touches[0];
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
-    const trail = sliceTrailRef.current;
-    sliceTrailRef.current = { points: [...trail.points.slice(-25), { x, y }], opacity: 1 };
-    checkSlice(x, y);
-  };
-
-  const handleTouchEnd = () => {
-    const trail = sliceTrailRef.current;
-    sliceTrailRef.current = { ...trail, opacity: 0 };
+    setTimeout(() => {
+      fruitsRef.current = fruitsRef.current.filter(f => f.id !== fruitId);
+      velocitiesRef.current.delete(fruitId);
+      setFruits([...fruitsRef.current]);
+    }, 300);
   };
 
   const handleGameOver = () => {
     addScore(score);
-    if (score >= 100) {
-      addBadge({ id: 'fruit-master', name: '切水果大师', icon: '🍎' });
-    }
+    if (score >= 100) addBadge({ id: 'fruit-master', name: '切水果大师', icon: '🍎' });
   };
 
   const learnAndRevive = () => {
@@ -179,210 +169,86 @@ export default function FruitSliceGame() {
   };
 
   const revive = () => {
-    setGameState('playing');
     fruitsRef.current = [];
-    slicedFruitsRef.current = [];
-    sliceTrailRef.current = { points: [], opacity: 1 };
+    velocitiesRef.current.clear();
     fruitIdRef.current = 0;
     lastSpawnRef.current = 0;
+    setSlicedIds(new Set());
+    setFruits([]);
+    setGameState('playing');
   };
 
   const startGame = () => {
-    setGameState('playing');
-    setScore(0);
     fruitsRef.current = [];
-    slicedFruitsRef.current = [];
-    sliceTrailRef.current = { points: [], opacity: 1 };
+    velocitiesRef.current.clear();
     fruitIdRef.current = 0;
     lastSpawnRef.current = 0;
+    setSlicedIds(new Set());
+    setFruits([]);
+    setScore(0);
+    setGameState('playing');
   };
-
-  useEffect(() => {
-    const updateCanvasSize = () => {
-      const container = containerRef.current;
-      const canvas = canvasRef.current;
-      if (container && canvas) {
-        const rect = container.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        const newWidth = rect.width * dpr;
-        const newHeight = rect.height * dpr;
-        setCanvasSize({ width: newWidth, height: newHeight });
-        canvas.width = newWidth;
-        canvas.height = newHeight;
-      }
-    };
-
-    updateCanvasSize();
-    window.addEventListener('resize', updateCanvasSize);
-    return () => window.removeEventListener('resize', updateCanvasSize);
-  }, []);
-
-  useEffect(() => {
-    if (gameState !== 'playing') return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let lastTime = 0;
-
-    const gameLoop = (timestamp: number) => {
-      if (gameState !== 'playing') return;
-
-      const deltaTime = timestamp - lastTime;
-      lastTime = timestamp;
-
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, '#87CEEB');
-      gradient.addColorStop(0.5, '#98FB98');
-      gradient.addColorStop(1, '#FFE4B5');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      if (timestamp - lastSpawnRef.current > 700) {
-        fruitsRef.current = [...fruitsRef.current, createFruit(canvas.width, canvas.height)];
-        lastSpawnRef.current = timestamp;
-      }
-
-      fruitsRef.current = fruitsRef.current
-        .map((fruit) => ({
-          ...fruit,
-          x: fruit.x + fruit.vx,
-          y: fruit.y + fruit.vy,
-          vy: fruit.vy + 0.28,
-          rotation: fruit.rotation + fruit.rotationSpeed,
-        }))
-        .filter((fruit) => fruit.y < canvas.height + 100 && fruit.y > -100 && fruit.x > -100 && fruit.x < canvas.width + 100);
-
-      slicedFruitsRef.current = slicedFruitsRef.current
-        .map((fruit) => ({
-          ...fruit,
-          x: fruit.x + fruit.vx,
-          y: fruit.y + fruit.vy,
-          vy: fruit.vy + 0.45,
-          rotation: fruit.rotation + fruit.rotationSpeed,
-          opacity: fruit.opacity - 0.018,
-        }))
-        .filter((fruit) => fruit.opacity > 0);
-
-      const trail = sliceTrailRef.current;
-      sliceTrailRef.current = { ...trail, opacity: trail.opacity * 0.92 };
-
-      ctx.save();
-      ctx.font = '50px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      fruitsRef.current.forEach((fruit) => {
-        ctx.save();
-        ctx.translate(fruit.x, fruit.y);
-        ctx.rotate(fruit.rotation);
-        
-        if (fruit.type === 'bacteria') {
-          ctx.shadowColor = '#ff4444';
-          ctx.shadowBlur = 15;
-        } else {
-          ctx.shadowColor = '#FFD700';
-          ctx.shadowBlur = 8;
-        }
-        
-        ctx.fillText(fruit.emoji, 0, 0);
-        ctx.restore();
-      });
-
-      slicedFruitsRef.current.forEach((fruit) => {
-        ctx.save();
-        ctx.globalAlpha = fruit.opacity;
-        ctx.translate(fruit.x, fruit.y);
-        ctx.rotate(fruit.rotation);
-        ctx.shadowColor = '#FFD700';
-        ctx.shadowBlur = 5;
-        ctx.fillText(fruit.emoji, 0, 0);
-        ctx.restore();
-      });
-
-      ctx.restore();
-
-      if (trail.points.length > 1 && trail.opacity > 0.1) {
-        ctx.beginPath();
-        ctx.moveTo(trail.points[0].x * (canvas.width / canvasSize.width), trail.points[0].y * (canvas.height / canvasSize.height));
-        trail.points.forEach((point, i) => {
-          if (i > 0) ctx.lineTo(point.x * (canvas.width / canvasSize.width), point.y * (canvas.height / canvasSize.height));
-        });
-        ctx.strokeStyle = `rgba(255, 255, 255, ${trail.opacity})`;
-        ctx.lineWidth = 10;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 12;
-        ctx.stroke();
-      }
-
-      animationRef.current = requestAnimationFrame(gameLoop);
-    };
-
-    animationRef.current = requestAnimationFrame(gameLoop);
-
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
-  }, [gameState, createFruit, canvasSize]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-400 via-emerald-200 to-orange-100">
       <header className="bg-white/80 backdrop-blur-sm shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => navigate('/')}
-            className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
-          >
+          <button onClick={() => navigate('/')} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-6 py-2 rounded-full font-bold text-xl shadow-lg">
             {score} 分
           </div>
           {gameState === 'playing' && (
-            <button
-              onClick={() => setGameState('paused')}
-              className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
-            >
+            <button onClick={() => setGameState('paused')} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
               <Pause className="w-5 h-5 text-gray-600" />
             </button>
           )}
         </div>
       </header>
 
-      <div ref={containerRef} className="relative w-full h-[calc(100vh-120px)] touch-none">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onMouseDown={(e) => {
-            const rect = containerRef.current?.getBoundingClientRect();
-            if (rect) {
-              checkSlice(e.clientX - rect.left, e.clientY - rect.top);
-              sliceTrailRef.current = { points: [{ x: e.clientX - rect.left, y: e.clientY - rect.top }], opacity: 1 };
-            }
-          }}
-          onMouseMove={(e) => {
-            if (e.buttons === 1 && gameState === 'playing') {
-              const rect = containerRef.current?.getBoundingClientRect();
-              if (rect) {
-                checkSlice(e.clientX - rect.left, e.clientY - rect.top);
-                const trail = sliceTrailRef.current;
-                sliceTrailRef.current = { points: [...trail.points.slice(-25), { x: e.clientX - rect.left, y: e.clientY - rect.top }], opacity: 1 };
+      <div 
+        ref={containerRef} 
+        className="relative w-full h-[calc(100vh-120px)] touch-none overflow-hidden bg-gradient-to-b from-sky-300 via-green-200 to-amber-100"
+      >
+        <div className="absolute top-10 left-10 text-6xl opacity-30">☁️</div>
+        <div className="absolute top-20 right-20 text-5xl opacity-25">☁️</div>
+        <div className="absolute top-5 left-1/3 text-4xl opacity-20">☁️</div>
+
+        {fruits.map((fruit) => (
+          <div
+            key={fruit.id}
+            className={`absolute select-none cursor-pointer transition-transform ${
+              slicedIds.has(fruit.id) ? 'scale-150 opacity-0' : 'hover:scale-110'
+            }`}
+            style={{
+              left: fruit.x,
+              top: fruit.y,
+              transform: 'translate(-50%, -50%)',
+              fontSize: '56px',
+              transition: slicedIds.has(fruit.id) ? 'all 0.3s ease-out' : 'transform 0.1s',
+              filter: fruit.type === 'bacteria' 
+                ? 'drop-shadow(0 0 12px rgba(255, 68, 68, 0.8))' 
+                : 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.6))',
+            }}
+            onMouseEnter={(e) => handleSlice(e, fruit.id)}
+            onMouseDown={(e) => handleSlice(e, fruit.id)}
+            onTouchStart={(e) => handleSlice(e, fruit.id)}
+            onTouchMove={(e) => {
+              const touch = e.touches[0];
+              const target = document.elementFromPoint(touch.clientX, touch.clientY);
+              if (target && (target as HTMLElement).dataset?.fruitId) {
+                handleSlice(e, parseInt((target as HTMLElement).dataset.fruitId));
               }
-            }
-          }}
-          onMouseUp={handleTouchEnd}
-        />
+            }}
+            data-fruit-id={fruit.id}
+          >
+            {fruit.emoji}
+          </div>
+        ))}
 
         {gameState === 'menu' && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
               <div className="text-7xl mb-4">🍎</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">切水果大战细菌</h2>
@@ -394,8 +260,8 @@ export default function FruitSliceGame() {
                   <li>💡 学习知识可以复活</li>
                 </ul>
               </div>
-              <button
-                onClick={startGame}
+              <button 
+                onClick={startGame} 
                 className="bg-gradient-to-r from-red-400 to-orange-400 text-white font-bold py-4 px-10 rounded-full shadow-lg hover:scale-105 transition-transform text-lg"
               >
                 开始游戏
@@ -405,19 +271,19 @@ export default function FruitSliceGame() {
         )}
 
         {gameState === 'paused' && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
               <div className="text-7xl mb-4">⏸️</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-6">游戏暂停</h2>
               <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => setGameState('playing')}
+                <button 
+                  onClick={() => setGameState('playing')} 
                   className="bg-gradient-to-r from-green-400 to-teal-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"
                 >
                   <Play className="w-5 h-5" /> 继续游戏
                 </button>
-                <button
-                  onClick={startGame}
+                <button 
+                  onClick={startGame} 
                   className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"
                 >
                   <RotateCcw className="w-5 h-5" /> 重新开始
@@ -428,7 +294,7 @@ export default function FruitSliceGame() {
         )}
 
         {gameState === 'gameover' && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
               <div className="text-7xl mb-4">💥</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">游戏结束！</h2>
@@ -444,8 +310,8 @@ export default function FruitSliceGame() {
                     <h4 className="font-bold text-gray-800 mb-2">{reviveKnowledge.title}</h4>
                     <p className="text-sm text-gray-600 whitespace-pre-line">{reviveKnowledge.content}</p>
                   </div>
-                  <button
-                    onClick={learnAndRevive}
+                  <button 
+                    onClick={learnAndRevive} 
                     className="w-full bg-gradient-to-r from-purple-400 to-pink-400 text-white font-bold py-3 rounded-full shadow-lg hover:scale-105 transition-transform"
                   >
                     我学会了 ✅
@@ -455,14 +321,14 @@ export default function FruitSliceGame() {
 
               {isKnowledgeLearned && (
                 <div className="flex flex-col gap-3">
-                  <button
-                    onClick={revive}
+                  <button 
+                    onClick={revive} 
                     className="bg-gradient-to-r from-green-400 to-teal-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"
                   >
                     <CheckCircle className="w-5 h-5" /> 复活继续
                   </button>
-                  <button
-                    onClick={() => { handleGameOver(); navigate('/'); }}
+                  <button 
+                    onClick={() => { handleGameOver(); navigate('/'); }} 
                     className="bg-gray-100 text-gray-700 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
                   >
                     返回首页
@@ -472,14 +338,14 @@ export default function FruitSliceGame() {
 
               {!reviveKnowledge && (
                 <div className="flex flex-col gap-3">
-                  <button
-                    onClick={startGame}
+                  <button 
+                    onClick={startGame} 
                     className="bg-gradient-to-r from-red-400 to-orange-400 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
                   >
                     再玩一次
                   </button>
-                  <button
-                    onClick={() => { handleGameOver(); navigate('/'); }}
+                  <button 
+                    onClick={() => { handleGameOver(); navigate('/'); }} 
                     className="bg-gray-100 text-gray-700 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
                   >
                     返回首页
