@@ -12,9 +12,11 @@ interface Fruit {
   vy: number;
   radius: number;
   emoji: string;
+  imageUrl: string;
   type: 'fruit' | 'bacteria';
   rotation: number;
   rotationSpeed: number;
+  image: HTMLImageElement | null;
 }
 
 interface SlicedFruit {
@@ -24,9 +26,11 @@ interface SlicedFruit {
   vx: number;
   vy: number;
   emoji: string;
+  imageUrl: string;
   rotation: number;
   rotationSpeed: number;
   opacity: number;
+  image: HTMLImageElement | null;
 }
 
 interface SliceTrail {
@@ -50,8 +54,22 @@ export default function FruitSliceGame() {
   const lastSpawnRef = useRef(0);
   const fruitIdRef = useRef(0);
 
-  const fruitEmojis = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉', '🍍', '🥭'];
-  const bacteriaEmojis = ['🦠', '🤢', '💀', '☠️'];
+  const fruitEmojis = ['🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉'];
+  const bacteriaEmojis = ['🦠', '🤢', '💀'];
+  
+  // 水果图片URL
+  const fruitImages = [
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=red%20apple%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=orange%20citrus%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=lemon%20yellow%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=grapes%20purple%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=strawberry%20red%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=peach%20pink%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cherry%20red%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=kiwi%20green%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=banana%20yellow%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+    'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=watermelon%20green%20fruit%20clipart%20cute%20flat%20illustration%20transparent%20background&image_size=square',
+  ];
 
   const getRandomKnowledge = () => {
     return knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
@@ -59,25 +77,39 @@ export default function FruitSliceGame() {
 
   const createFruit = useCallback((canvasWidth: number, canvasHeight: number): Fruit => {
     const isBacteria = Math.random() < 0.25;
+    const emojiIndex = Math.floor(Math.random() * fruitEmojis.length);
     const emoji = isBacteria
       ? bacteriaEmojis[Math.floor(Math.random() * bacteriaEmojis.length)]
-      : fruitEmojis[Math.floor(Math.random() * fruitEmojis.length)];
+      : fruitEmojis[emojiIndex];
+    const imageUrl = isBacteria ? '' : fruitImages[emojiIndex];
     
     const side = Math.random() < 0.5 ? -1 : 1;
     const x = Math.random() * (canvasWidth * 0.6) + canvasWidth * 0.2;
     
-    return {
+    const newFruit: Fruit = {
       id: fruitIdRef.current++,
       x,
       y: canvasHeight + 50,
       vx: (Math.random() - 0.5) * 8 * side,
       vy: -(Math.random() * 6 + 14),
-      radius: 45,
+      radius: 50,
       emoji,
+      imageUrl,
       type: isBacteria ? 'bacteria' : 'fruit',
       rotation: 0,
       rotationSpeed: (Math.random() - 0.5) * 0.3,
+      image: null,
     };
+    
+    // 预加载图片
+    if (!isBacteria) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = imageUrl;
+      newFruit.image = img;
+    }
+    
+    return newFruit;
   }, []);
 
   const sliceFruit = useCallback((fruit: Fruit, slicedFruits: SlicedFruit[]) => {
@@ -97,9 +129,11 @@ export default function FruitSliceGame() {
         vx: fruit.vx - 4,
         vy: fruit.vy - 2,
         emoji: fruit.emoji,
+        imageUrl: fruit.imageUrl,
         rotation: fruit.rotation,
         rotationSpeed: -0.2,
         opacity: 1,
+        image: fruit.image,
       },
       {
         id: fruit.id + 1000,
@@ -108,9 +142,11 @@ export default function FruitSliceGame() {
         vx: fruit.vx + 4,
         vy: fruit.vy - 2,
         emoji: fruit.emoji,
+        imageUrl: fruit.imageUrl,
         rotation: fruit.rotation,
         rotationSpeed: 0.2,
         opacity: 1,
+        image: fruit.image,
       },
     ];
 
@@ -293,16 +329,25 @@ export default function FruitSliceGame() {
         ctx.save();
         ctx.translate(fruit.x, fruit.y);
         ctx.rotate(fruit.rotation);
-        ctx.font = `${fruit.radius * 1.5}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
         
         if (fruit.type === 'bacteria') {
+          ctx.font = `${fruit.radius * 1.5}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
           ctx.shadowColor = '#ff4444';
           ctx.shadowBlur = 15;
+          ctx.fillText(fruit.emoji, 0, 0);
+        } else if (fruit.image && fruit.image.complete) {
+          // 绘制水果图片
+          const size = fruit.radius * 2;
+          ctx.drawImage(fruit.image, -size/2, -size/2, size, size);
+        } else {
+          // 图片未加载时使用emoji
+          ctx.font = `${fruit.radius * 1.5}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(fruit.emoji, 0, 0);
         }
-        
-        ctx.fillText(fruit.emoji, 0, 0);
         ctx.restore();
       });
 
@@ -311,10 +356,25 @@ export default function FruitSliceGame() {
         ctx.globalAlpha = fruit.opacity;
         ctx.translate(fruit.x, fruit.y);
         ctx.rotate(fruit.rotation);
-        ctx.font = `50px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(fruit.emoji, 0, 0);
+        
+        // 判断是细菌还是水果
+        const isBacteria = bacteriaEmojis.includes(fruit.emoji);
+        if (isBacteria) {
+          ctx.font = `50px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(fruit.emoji, 0, 0);
+        } else if (fruit.image && fruit.image.complete) {
+          // 绘制水果图片
+          const size = 60;
+          ctx.drawImage(fruit.image, -size/2, -size/2, size, size);
+        } else {
+          // 图片未加载时使用emoji
+          ctx.font = `50px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(fruit.emoji, 0, 0);
+        }
         ctx.restore();
       });
 

@@ -19,7 +19,7 @@ const levels: Level[] = [
   { id: 2, name: '第二关', virusName: '蚊子病毒', emoji: '🦟', difficulty: 'easy', description: '通过蚊子传播的病毒，要小心应对！', requiredScore: 50 },
   { id: 3, name: '第三关', virusName: '有害细菌', emoji: '🧫', difficulty: 'medium', description: '细菌比病毒更大一些，挑战升级！', requiredScore: 100 },
   { id: 4, name: '第四关', virusName: '变异病毒', emoji: '🦠', difficulty: 'medium', description: '变异后的病毒更强大，做好准备！', requiredScore: 150 },
-  { id: 5, name: '第五关', virusName: '超级细菌大魔王', emoji: '🫧', difficulty: 'hard', description: '最终BOSS！只有真正的健康小卫士才能战胜它！', requiredScore: 200 },
+  { id: 5, name: '第五关', virusName: '超级细菌大魔王', emoji: '👹', difficulty: 'hard', description: '最终BOSS！只有真正的健康小卫士才能战胜它！', requiredScore: 200 },
 ];
 
 const shuffleArray = <T,>(array: T[]): T[] => {
@@ -32,9 +32,18 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 };
 
 const getRandomQuestions = (count: number, difficulty?: 'easy' | 'medium' | 'hard') => {
-  const filtered = difficulty
+  let filtered = difficulty
     ? questions.filter(q => q.difficulty === difficulty)
     : questions;
+  
+  // 如果指定难度没有足够题目，降级获取
+  if (filtered.length < count && difficulty === 'hard') {
+    filtered = questions.filter(q => q.difficulty === 'medium');
+  }
+  if (filtered.length < count) {
+    filtered = questions;
+  }
+  
   const shuffled = shuffleArray(filtered);
   return shuffled.slice(0, count);
 };

@@ -29,10 +29,10 @@ const games = [
     img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20child%20doctor%20with%20stethoscope%20and%20first%20aid%20kit%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
   },
   {
-    id: 'miner', name: '黄金矿工', emoji: '⛏️', path: '/game/miner', badge: null, desc: '挖宝答题',
+    id: 'habit', name: '陋习找茬', emoji: '🔍', path: '/game/habit', badge: null, desc: '辨别好习惯',
     bg: 'linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%)',
     accent: '#fde68a',
-    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20gold%20miner%20with%20pickaxe%20diamond%20and%20gold%20nugget%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
+    img: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20chibi%20kid%20spotting%20bad%20habits%20with%20magnifying%20glass%20finding%20good%20habits%20flat%20vector%20illustration%20kawaii%20game%20style%20simple%20clean&image_size=square',
   },
   {
     id: 'matching', name: '连连看', emoji: '🔗', path: '/game/matching', badge: null, desc: '配对挑战',
