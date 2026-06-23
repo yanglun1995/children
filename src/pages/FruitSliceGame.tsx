@@ -29,11 +29,6 @@ interface SlicedFruit {
   opacity: number;
 }
 
-interface SliceTrail {
-  points: { x: number; y: number }[];
-  opacity: number;
-}
-
 export default function FruitSliceGame() {
   const navigate = useNavigate();
   const { addScore, addBadge, addKnowledgeCard } = useGameStore();
@@ -42,87 +37,60 @@ export default function FruitSliceGame() {
   const animationRef = useRef<number>();
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover' | 'revive'>('menu');
   const [score, setScore] = useState(0);
-  const fruitsRef = useRef<Fruit[]>([]);
-  const slicedFruitsRef = useRef<SlicedFruit[]>([]);
-  const [sliceTrail, setSliceTrail] = useState<SliceTrail>({ points: [], opacity: 1 });
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [reviveKnowledge, setReviveKnowledge] = useState<any>(null);
   const [isKnowledgeLearned, setIsKnowledgeLearned] = useState(false);
+  
+  const fruitsRef = useRef<Fruit[]>([]);
+  const slicedFruitsRef = useRef<SlicedFruit[]>([]);
+  const sliceTrailRef = useRef<{ points: { x: number; y: number }[]; opacity: number }>({ points: [], opacity: 1 });
   const lastSpawnRef = useRef(0);
   const fruitIdRef = useRef(0);
-  const canvasSizeRef = useRef({ width: 800, height: 600 });
 
   const fruitEmojis = [
     '🍎', '🍊', '🍋', '🍇', '🍓', '🍑', '🍒', '🥝', '🍌', '🍉',
-    '🍍', '🥭', '🍐', '🍏', '🍈', '🍒', '🫐', '🥥', '🍅', '🥑'
+    '🍍', '🥭', '🍐', '🍏', '🍈', '🫐', '🥥', '🍅', '🥑'
   ];
-  const bacteriaEmojis = ['🦠', '🤢', '💀', '☠️', '👾'];
+  const bacteriaEmojis = ['🦠', '🤢', '💀', '☠️'];
 
   const getRandomKnowledge = () => {
     return knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
   };
 
   const createFruit = useCallback((canvasWidth: number, canvasHeight: number): Fruit => {
-    const isBacteria = Math.random() < 0.2;
+    const isBacteria = Math.random() < 0.15;
     const emoji = isBacteria
       ? bacteriaEmojis[Math.floor(Math.random() * bacteriaEmojis.length)]
       : fruitEmojis[Math.floor(Math.random() * fruitEmojis.length)];
     
     const side = Math.random() < 0.5 ? -1 : 1;
-    const x = Math.random() * (canvasWidth * 0.6) + canvasWidth * 0.2;
+    const x = Math.random() * (canvasWidth * 0.7) + canvasWidth * 0.15;
     
     return {
       id: fruitIdRef.current++,
       x,
       y: canvasHeight + 50,
-      vx: (Math.random() - 0.5) * 8 * side,
-      vy: -(Math.random() * 6 + 14),
-      radius: 50,
+      vx: (Math.random() - 0.5) * 6 * side,
+      vy: -(Math.random() * 5 + 12),
+      radius: 45,
       emoji,
       type: isBacteria ? 'bacteria' : 'fruit',
       rotation: 0,
-      rotationSpeed: (Math.random() - 0.5) * 0.3,
+      rotationSpeed: (Math.random() - 0.5) * 0.2,
     };
   }, []);
 
   const sliceFruit = useCallback((fruit: Fruit): { newSliced: SlicedFruit[]; scoreChange: number; isBacteria: boolean } => {
     if (fruit.type === 'bacteria') {
-      return {
-        newSliced: [],
-        scoreChange: 0,
-        isBacteria: true,
-      };
+      return { newSliced: [], scoreChange: 0, isBacteria: true };
     }
 
     const newSliced: SlicedFruit[] = [
-      {
-        id: fruit.id,
-        x: fruit.x,
-        y: fruit.y,
-        vx: fruit.vx - 4,
-        vy: fruit.vy - 2,
-        emoji: fruit.emoji,
-        rotation: fruit.rotation,
-        rotationSpeed: -0.2,
-        opacity: 1,
-      },
-      {
-        id: fruit.id + 1000,
-        x: fruit.x,
-        y: fruit.y,
-        vx: fruit.vx + 4,
-        vy: fruit.vy - 2,
-        emoji: fruit.emoji,
-        rotation: fruit.rotation,
-        rotationSpeed: 0.2,
-        opacity: 1,
-      },
+      { id: fruit.id, x: fruit.x, y: fruit.y, vx: fruit.vx - 3, vy: fruit.vy - 2, emoji: fruit.emoji, rotation: fruit.rotation, rotationSpeed: -0.2, opacity: 1 },
+      { id: fruit.id + 1000, x: fruit.x, y: fruit.y, vx: fruit.vx + 3, vy: fruit.vy - 2, emoji: fruit.emoji, rotation: fruit.rotation, rotationSpeed: 0.2, opacity: 1 },
     ];
 
-    return {
-      newSliced,
-      scoreChange: 10,
-      isBacteria: false,
-    };
+    return { newSliced, scoreChange: 10, isBacteria: false };
   }, []);
 
   const checkSlice = useCallback((x: number, y: number) => {
@@ -132,35 +100,30 @@ export default function FruitSliceGame() {
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvasSizeRef.current.width / rect.width;
-    const scaleY = canvasSizeRef.current.height / rect.height;
+    const scaleX = canvasSize.width / rect.width;
+    const scaleY = canvasSize.height / rect.height;
     const canvasX = x * scaleX;
     const canvasY = y * scaleY;
 
-    const newFruits = [...fruitsRef.current];
-    let newSliced = [...slicedFruitsRef.current];
+    const toRemove: number[] = [];
     let scoreChange = 0;
     let hitBacteria = false;
 
-    const toRemove: number[] = [];
-    newFruits.forEach((fruit) => {
+    fruitsRef.current.forEach((fruit) => {
       const dx = canvasX - fruit.x;
       const dy = canvasY - fruit.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (distance < fruit.radius + 20) {
+      if (distance < fruit.radius + 25) {
         const result = sliceFruit(fruit);
-        newSliced = [...newSliced, ...result.newSliced];
+        slicedFruitsRef.current = [...slicedFruitsRef.current, ...result.newSliced];
         scoreChange += result.scoreChange;
-        if (result.isBacteria) {
-          hitBacteria = true;
-        }
+        if (result.isBacteria) hitBacteria = true;
         toRemove.push(fruit.id);
       }
     });
 
-    fruitsRef.current = newFruits.filter((f) => !toRemove.includes(f.id));
-    slicedFruitsRef.current = newSliced;
+    fruitsRef.current = fruitsRef.current.filter((f) => !toRemove.includes(f.id));
     setScore((prev) => prev + scoreChange);
     
     if (hitBacteria) {
@@ -168,14 +131,14 @@ export default function FruitSliceGame() {
       setIsKnowledgeLearned(false);
       setGameState('gameover');
     }
-  }, [gameState, sliceFruit]);
+  }, [gameState, canvasSize, sliceFruit]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (gameState !== 'playing') return;
     const touch = e.touches[0];
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setSliceTrail({ points: [{ x: touch.clientX - rect.left, y: touch.clientY - rect.top }], opacity: 1 });
+    sliceTrailRef.current = { points: [{ x: touch.clientX - rect.left, y: touch.clientY - rect.top }], opacity: 1 };
     checkSlice(touch.clientX - rect.left, touch.clientY - rect.top);
   };
 
@@ -186,25 +149,20 @@ export default function FruitSliceGame() {
     if (!rect) return;
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
-    setSliceTrail((prev) => ({
-      points: [...prev.points.slice(-20), { x, y }],
-      opacity: 1,
-    }));
+    const trail = sliceTrailRef.current;
+    sliceTrailRef.current = { points: [...trail.points.slice(-25), { x, y }], opacity: 1 };
     checkSlice(x, y);
   };
 
   const handleTouchEnd = () => {
-    setSliceTrail((prev) => ({ ...prev, opacity: 0 }));
+    const trail = sliceTrailRef.current;
+    sliceTrailRef.current = { ...trail, opacity: 0 };
   };
 
   const handleGameOver = () => {
     addScore(score);
     if (score >= 100) {
-      addBadge({
-        id: 'fruit-master',
-        name: '切水果大师',
-        icon: '🍎',
-      });
+      addBadge({ id: 'fruit-master', name: '切水果大师', icon: '🍎' });
     }
   };
 
@@ -224,7 +182,9 @@ export default function FruitSliceGame() {
     setGameState('playing');
     fruitsRef.current = [];
     slicedFruitsRef.current = [];
-    setSliceTrail({ points: [], opacity: 1 });
+    sliceTrailRef.current = { points: [], opacity: 1 };
+    fruitIdRef.current = 0;
+    lastSpawnRef.current = 0;
   };
 
   const startGame = () => {
@@ -232,7 +192,7 @@ export default function FruitSliceGame() {
     setScore(0);
     fruitsRef.current = [];
     slicedFruitsRef.current = [];
-    setSliceTrail({ points: [], opacity: 1 });
+    sliceTrailRef.current = { points: [], opacity: 1 };
     fruitIdRef.current = 0;
     lastSpawnRef.current = 0;
   };
@@ -243,12 +203,12 @@ export default function FruitSliceGame() {
       const canvas = canvasRef.current;
       if (container && canvas) {
         const rect = container.getBoundingClientRect();
-        canvasSizeRef.current = {
-          width: rect.width,
-          height: rect.height
-        };
-        canvas.width = rect.width;
-        canvas.height = rect.height;
+        const dpr = window.devicePixelRatio || 1;
+        const newWidth = rect.width * dpr;
+        const newHeight = rect.height * dpr;
+        setCanvasSize({ width: newWidth, height: newHeight });
+        canvas.width = newWidth;
+        canvas.height = newHeight;
       }
     };
 
@@ -281,7 +241,7 @@ export default function FruitSliceGame() {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      if (timestamp - lastSpawnRef.current > 600) {
+      if (timestamp - lastSpawnRef.current > 700) {
         fruitsRef.current = [...fruitsRef.current, createFruit(canvas.width, canvas.height)];
         lastSpawnRef.current = timestamp;
       }
@@ -291,23 +251,29 @@ export default function FruitSliceGame() {
           ...fruit,
           x: fruit.x + fruit.vx,
           y: fruit.y + fruit.vy,
-          vy: fruit.vy + 0.3,
+          vy: fruit.vy + 0.28,
           rotation: fruit.rotation + fruit.rotationSpeed,
         }))
-        .filter((fruit) => fruit.y < canvas.height + 100);
+        .filter((fruit) => fruit.y < canvas.height + 100 && fruit.y > -100 && fruit.x > -100 && fruit.x < canvas.width + 100);
 
       slicedFruitsRef.current = slicedFruitsRef.current
         .map((fruit) => ({
           ...fruit,
           x: fruit.x + fruit.vx,
           y: fruit.y + fruit.vy,
-          vy: fruit.vy + 0.5,
+          vy: fruit.vy + 0.45,
           rotation: fruit.rotation + fruit.rotationSpeed,
-          opacity: fruit.opacity - 0.015,
+          opacity: fruit.opacity - 0.018,
         }))
         .filter((fruit) => fruit.opacity > 0);
 
-      setSliceTrail((prev) => ({ ...prev, opacity: prev.opacity * 0.95 }));
+      const trail = sliceTrailRef.current;
+      sliceTrailRef.current = { ...trail, opacity: trail.opacity * 0.92 };
+
+      ctx.save();
+      ctx.font = '50px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
 
       fruitsRef.current.forEach((fruit) => {
         ctx.save();
@@ -316,15 +282,12 @@ export default function FruitSliceGame() {
         
         if (fruit.type === 'bacteria') {
           ctx.shadowColor = '#ff4444';
-          ctx.shadowBlur = 20;
+          ctx.shadowBlur = 15;
         } else {
           ctx.shadowColor = '#FFD700';
-          ctx.shadowBlur = 10;
+          ctx.shadowBlur = 8;
         }
         
-        ctx.font = `${fruit.radius * 1.5}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
         ctx.fillText(fruit.emoji, 0, 0);
         ctx.restore();
       });
@@ -334,30 +297,26 @@ export default function FruitSliceGame() {
         ctx.globalAlpha = fruit.opacity;
         ctx.translate(fruit.x, fruit.y);
         ctx.rotate(fruit.rotation);
-        
         ctx.shadowColor = '#FFD700';
         ctx.shadowBlur = 5;
-        
-        ctx.font = `${fruit.radius}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
         ctx.fillText(fruit.emoji, 0, 0);
         ctx.restore();
       });
 
-      let currentTrail = sliceTrail;
-      if (currentTrail.points.length > 1 && currentTrail.opacity > 0.1) {
+      ctx.restore();
+
+      if (trail.points.length > 1 && trail.opacity > 0.1) {
         ctx.beginPath();
-        ctx.moveTo(currentTrail.points[0].x, currentTrail.points[0].y);
-        currentTrail.points.forEach((point, i) => {
-          if (i > 0) ctx.lineTo(point.x, point.y);
+        ctx.moveTo(trail.points[0].x * (canvas.width / canvasSize.width), trail.points[0].y * (canvas.height / canvasSize.height));
+        trail.points.forEach((point, i) => {
+          if (i > 0) ctx.lineTo(point.x * (canvas.width / canvasSize.width), point.y * (canvas.height / canvasSize.height));
         });
-        ctx.strokeStyle = `rgba(255, 255, 255, ${currentTrail.opacity})`;
-        ctx.lineWidth = 8;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${trail.opacity})`;
+        ctx.lineWidth = 10;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 12;
         ctx.stroke();
       }
 
@@ -367,11 +326,9 @@ export default function FruitSliceGame() {
     animationRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [gameState, createFruit, sliceTrail]);
+  }, [gameState, createFruit, canvasSize]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-400 via-emerald-200 to-orange-100">
@@ -408,7 +365,7 @@ export default function FruitSliceGame() {
             const rect = containerRef.current?.getBoundingClientRect();
             if (rect) {
               checkSlice(e.clientX - rect.left, e.clientY - rect.top);
-              setSliceTrail({ points: [{ x: e.clientX - rect.left, y: e.clientY - rect.top }], opacity: 1 });
+              sliceTrailRef.current = { points: [{ x: e.clientX - rect.left, y: e.clientY - rect.top }], opacity: 1 };
             }
           }}
           onMouseMove={(e) => {
@@ -416,10 +373,8 @@ export default function FruitSliceGame() {
               const rect = containerRef.current?.getBoundingClientRect();
               if (rect) {
                 checkSlice(e.clientX - rect.left, e.clientY - rect.top);
-                setSliceTrail((prev) => ({
-                  points: [...prev.points.slice(-20), { x: e.clientX - rect.left, y: e.clientY - rect.top }],
-                  opacity: 1,
-                }));
+                const trail = sliceTrailRef.current;
+                sliceTrailRef.current = { points: [...trail.points.slice(-25), { x: e.clientX - rect.left, y: e.clientY - rect.top }], opacity: 1 };
               }
             }
           }}
@@ -507,10 +462,7 @@ export default function FruitSliceGame() {
                     <CheckCircle className="w-5 h-5" /> 复活继续
                   </button>
                   <button
-                    onClick={() => {
-                      handleGameOver();
-                      navigate('/');
-                    }}
+                    onClick={() => { handleGameOver(); navigate('/'); }}
                     className="bg-gray-100 text-gray-700 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
                   >
                     返回首页
@@ -527,10 +479,7 @@ export default function FruitSliceGame() {
                     再玩一次
                   </button>
                   <button
-                    onClick={() => {
-                      handleGameOver();
-                      navigate('/');
-                    }}
+                    onClick={() => { handleGameOver(); navigate('/'); }}
                     className="bg-gray-100 text-gray-700 font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
                   >
                     返回首页
