@@ -11,8 +11,36 @@ interface FruitItem {
   id: number;
   x: number;
   y: number;
+  vx: number;
+  vy: number;
   emoji: string;
   type: 'fruit' | 'bacteria';
+  rotation: number;
+  rotationSpeed: number;
+}
+
+interface SlicedEffect {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  rotationSpeed: number;
+  emoji: string;
+  opacity: number;
+  half: 'left' | 'right';
+}
+
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  opacity: number;
 }
 
 export default function FruitSliceGame() {
@@ -22,22 +50,113 @@ export default function FruitSliceGame() {
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover'>('menu');
   const [score, setScore] = useState(0);
   const [fruits, setFruits] = useState<FruitItem[]>([]);
+  const [slicedEffects, setSlicedEffects] = useState<SlicedEffect[]>([]);
+  const [particles, setParticles] = useState<Particle[]>([]);
   const [reviveKnowledge, setReviveKnowledge] = useState<any>(null);
   const [isKnowledgeLearned, setIsKnowledgeLearned] = useState(false);
-  const [slicedIds, setSlicedIds] = useState<Set<number>>(new Set());
+  const [showScorePopup, setShowScorePopup] = useState<{ x: number; y: number; value: number } | null>(null);
   
   const animationRef = useRef<number>(0);
   const fruitIdRef = useRef(0);
+  const particleIdRef = useRef(0);
   const lastSpawnRef = useRef(0);
   const gameStateRef = useRef(gameState);
   const fruitsRef = useRef<FruitItem[]>([]);
-  const velocitiesRef = useRef<Map<number, { vx: number; vy: number; rotation: number; rotationSpeed: number }>>(new Map());
+  const slicedRef = useRef<SlicedEffect[]>([]);
+  const particlesRef = useRef<Particle[]>([]);
   const containerHeightRef = useRef(0);
   const containerWidthRef = useRef(0);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  const initAudio = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+  };
+
+  const playSliceSound = () => {
+    try {
+      initAudio();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.1);
+      
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.15);
+    } catch (e) {
+      console.log('Audio not available');
+    }
+  };
+
+  const playBacteriaSound = () => {
+    try {
+      initAudio();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+      
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.3);
+    } catch (e) {
+      console.log('Audio not available');
+    }
+  };
+
+  const playComboSound = (combo: number) => {
+    try {
+      initAudio();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+
+      const baseFreq = 400 + combo * 100;
+      for (let i = 0; i < Math.min(combo, 3); i++) {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(baseFreq + i * 200, ctx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+        
+        oscillator.start(ctx.currentTime + i * 0.05);
+        oscillator.stop(ctx.currentTime + 0.2 + i * 0.05);
+      }
+    } catch (e) {
+      console.log('Audio not available');
+    }
+  };
 
   const getRandomKnowledge = () => knowledgeCards[Math.floor(Math.random() * knowledgeCards.length)];
 
@@ -54,19 +173,69 @@ export default function FruitSliceGame() {
       id,
       x,
       y: containerHeightRef.current + 60,
-      emoji,
-      type: isBacteria ? 'bacteria' : 'fruit',
-    }];
-    
-    velocitiesRef.current.set(id, {
       vx: (Math.random() - 0.5) * 5 * side,
       vy,
+      emoji,
+      type: isBacteria ? 'bacteria' : 'fruit',
       rotation: 0,
       rotationSpeed: (Math.random() - 0.5) * 0.15,
-    });
+    }];
     
     setFruits([...fruitsRef.current]);
   }, []);
+
+  const createParticles = (x: number, y: number, type: 'fruit' | 'bacteria') => {
+    const colors = type === 'fruit' 
+      ? ['#FF6B6B', '#FFE66D', '#4ECDC4', '#FF9F43', '#EE5A24']
+      : ['#8B0000', '#FF0000', '#DC143C'];
+    
+    const newParticles: Particle[] = [];
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.5;
+      const speed = 3 + Math.random() * 5;
+      newParticles.push({
+        id: particleIdRef.current++,
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 4 + Math.random() * 6,
+        opacity: 1,
+      });
+    }
+    particlesRef.current = [...particlesRef.current, ...newParticles];
+    setParticles([...particlesRef.current]);
+  };
+
+  const createSlicedEffect = (fruit: FruitItem) => {
+    const leftHalf: SlicedEffect = {
+      id: fruit.id * 2,
+      x: fruit.x - 20,
+      y: fruit.y,
+      vx: fruit.vx - 3,
+      vy: fruit.vy - 2,
+      rotation: fruit.rotation,
+      rotationSpeed: -0.3,
+      emoji: fruit.emoji,
+      opacity: 1,
+      half: 'left',
+    };
+    const rightHalf: SlicedEffect = {
+      id: fruit.id * 2 + 1,
+      x: fruit.x + 20,
+      y: fruit.y,
+      vx: fruit.vx + 3,
+      vy: fruit.vy - 2,
+      rotation: fruit.rotation,
+      rotationSpeed: 0.3,
+      emoji: fruit.emoji,
+      opacity: 1,
+      half: 'right',
+    };
+    slicedRef.current = [...slicedRef.current, leftHalf, rightHalf];
+    setSlicedEffects([...slicedRef.current]);
+  };
 
   const gameLoop = useCallback((timestamp: number) => {
     if (gameStateRef.current !== 'playing') return;
@@ -76,26 +245,42 @@ export default function FruitSliceGame() {
       lastSpawnRef.current = timestamp;
     }
 
-    const newFruits: FruitItem[] = [];
-    fruitsRef.current.forEach((fruit) => {
-      const vel = velocitiesRef.current.get(fruit.id);
-      if (!vel) return;
-      
-      const newVy = vel.vy + 0.25;
-      const newX = fruit.x + vel.vx;
-      const newY = fruit.y + newVy;
-      const newRotation = vel.rotation + vel.rotationSpeed;
-      
-      if (newY < containerHeightRef.current + 100 && newY > -100) {
-        newFruits.push({ ...fruit, x: newX, y: newY });
-        velocitiesRef.current.set(fruit.id, { ...vel, vy: newVy, rotation: newRotation });
-      } else {
-        velocitiesRef.current.delete(fruit.id);
-      }
-    });
-    
-    fruitsRef.current = newFruits;
-    setFruits([...newFruits]);
+    fruitsRef.current = fruitsRef.current
+      .map(fruit => ({
+        ...fruit,
+        x: fruit.x + fruit.vx,
+        y: fruit.y + fruit.vy,
+        vy: fruit.vy + 0.25,
+        rotation: fruit.rotation + fruit.rotationSpeed,
+      }))
+      .filter(fruit => fruit.y < containerHeightRef.current + 100 && fruit.y > -100);
+    setFruits([...fruitsRef.current]);
+
+    slicedRef.current = slicedRef.current
+      .map(effect => ({
+        ...effect,
+        x: effect.x + effect.vx,
+        y: effect.y + effect.vy,
+        vy: effect.vy + 0.4,
+        rotation: effect.rotation + effect.rotationSpeed,
+        opacity: effect.opacity - 0.02,
+      }))
+      .filter(effect => effect.opacity > 0 && effect.y < containerHeightRef.current + 200);
+    slicedRef.current = slicedRef.current;
+    setSlicedEffects([...slicedRef.current]);
+
+    particlesRef.current = particlesRef.current
+      .map(p => ({
+        ...p,
+        x: p.x + p.vx,
+        y: p.y + p.vy,
+        vy: p.vy + 0.2,
+        opacity: p.opacity - 0.03,
+        size: p.size * 0.97,
+      }))
+      .filter(p => p.opacity > 0);
+    particlesRef.current = particlesRef.current;
+    setParticles([...particlesRef.current]);
 
     animationRef.current = requestAnimationFrame(gameLoop);
   }, [spawnFruit]);
@@ -125,30 +310,31 @@ export default function FruitSliceGame() {
     };
   }, [gameState, gameLoop]);
 
-  const handleSlice = (e: React.MouseEvent | React.TouchEvent, fruitId: number) => {
-    e.stopPropagation();
+  const handleSlice = (fruitId: number) => {
     if (gameStateRef.current !== 'playing') return;
-    if (slicedIds.has(fruitId)) return;
 
     const fruit = fruitsRef.current.find(f => f.id === fruitId);
     if (!fruit) return;
 
-    setSlicedIds(prev => new Set([...prev, fruitId]));
+    playSliceSound();
+    createParticles(fruit.x, fruit.y, fruit.type);
 
     if (fruit.type === 'bacteria') {
+      playBacteriaSound();
       setReviveKnowledge(getRandomKnowledge());
       setIsKnowledgeLearned(false);
       gameStateRef.current = 'gameover';
       setGameState('gameover');
+      createParticles(fruit.x, fruit.y, 'bacteria');
     } else {
+      createSlicedEffect(fruit);
       setScore(prev => prev + 10);
+      setShowScorePopup({ x: fruit.x, y: fruit.y, value: 10 });
+      setTimeout(() => setShowScorePopup(null), 500);
     }
 
-    setTimeout(() => {
-      fruitsRef.current = fruitsRef.current.filter(f => f.id !== fruitId);
-      velocitiesRef.current.delete(fruitId);
-      setFruits([...fruitsRef.current]);
-    }, 300);
+    fruitsRef.current = fruitsRef.current.filter(f => f.id !== fruitId);
+    setFruits([...fruitsRef.current]);
   };
 
   const handleGameOver = () => {
@@ -170,21 +356,26 @@ export default function FruitSliceGame() {
 
   const revive = () => {
     fruitsRef.current = [];
-    velocitiesRef.current.clear();
+    slicedRef.current = [];
+    particlesRef.current = [];
     fruitIdRef.current = 0;
     lastSpawnRef.current = 0;
-    setSlicedIds(new Set());
     setFruits([]);
+    setSlicedEffects([]);
+    setParticles([]);
     setGameState('playing');
   };
 
   const startGame = () => {
+    initAudio();
     fruitsRef.current = [];
-    velocitiesRef.current.clear();
+    slicedRef.current = [];
+    particlesRef.current = [];
     fruitIdRef.current = 0;
     lastSpawnRef.current = 0;
-    setSlicedIds(new Set());
     setFruits([]);
+    setSlicedEffects([]);
+    setParticles([]);
     setScore(0);
     setGameState('playing');
   };
@@ -211,41 +402,82 @@ export default function FruitSliceGame() {
         ref={containerRef} 
         className="relative w-full h-[calc(100vh-120px)] touch-none overflow-hidden bg-gradient-to-b from-sky-300 via-green-200 to-amber-100"
       >
-        <div className="absolute top-10 left-10 text-6xl opacity-30">☁️</div>
-        <div className="absolute top-20 right-20 text-5xl opacity-25">☁️</div>
-        <div className="absolute top-5 left-1/3 text-4xl opacity-20">☁️</div>
+        <div className="absolute top-10 left-10 text-6xl opacity-30 animate-bounce" style={{ animationDuration: '3s' }}>☁️</div>
+        <div className="absolute top-20 right-20 text-5xl opacity-25 animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }}>☁️</div>
+        <div className="absolute top-5 left-1/3 text-4xl opacity-20 animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '0.5s' }}>☁️</div>
+
+        {particles.map((p) => (
+          <div
+            key={p.id}
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              left: p.x,
+              top: p.y,
+              width: p.size,
+              height: p.size,
+              backgroundColor: p.color,
+              opacity: p.opacity,
+              transform: 'translate(-50%, -50%)',
+              boxShadow: `0 0 ${p.size}px ${p.color}`,
+            }}
+          />
+        ))}
+
+        {slicedEffects.map((effect) => (
+          <div
+            key={effect.id}
+            className="absolute select-none pointer-events-none"
+            style={{
+              left: effect.x,
+              top: effect.y,
+              transform: `translate(-50%, -50%) rotate(${effect.rotation}rad) scaleX(${effect.half === 'left' ? -1 : 1})`,
+              fontSize: '52px',
+              opacity: effect.opacity,
+              filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.8))',
+              clipPath: effect.half === 'left' ? 'polygon(0 0, 50% 0, 50% 100%, 0 100%)' : 'polygon(50% 0, 100% 0, 100% 100%, 50% 100%)',
+            }}
+          >
+            {effect.emoji}
+          </div>
+        ))}
 
         {fruits.map((fruit) => (
           <div
             key={fruit.id}
-            className={`absolute select-none cursor-pointer transition-transform ${
-              slicedIds.has(fruit.id) ? 'scale-150 opacity-0' : 'hover:scale-110'
-            }`}
+            className="absolute select-none cursor-pointer"
             style={{
               left: fruit.x,
               top: fruit.y,
-              transform: 'translate(-50%, -50%)',
+              transform: `translate(-50%, -50%) rotate(${fruit.rotation}rad)`,
               fontSize: '56px',
-              transition: slicedIds.has(fruit.id) ? 'all 0.3s ease-out' : 'transform 0.1s',
               filter: fruit.type === 'bacteria' 
-                ? 'drop-shadow(0 0 12px rgba(255, 68, 68, 0.8))' 
-                : 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.6))',
+                ? 'drop-shadow(0 0 15px rgba(255, 0, 0, 0.9))' 
+                : 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.7))',
+              transition: 'transform 0.05s',
             }}
-            onMouseEnter={(e) => handleSlice(e, fruit.id)}
-            onMouseDown={(e) => handleSlice(e, fruit.id)}
-            onTouchStart={(e) => handleSlice(e, fruit.id)}
-            onTouchMove={(e) => {
-              const touch = e.touches[0];
-              const target = document.elementFromPoint(touch.clientX, touch.clientY);
-              if (target && (target as HTMLElement).dataset?.fruitId) {
-                handleSlice(e, parseInt((target as HTMLElement).dataset.fruitId));
-              }
+            onClick={() => handleSlice(fruit.id)}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              handleSlice(fruit.id);
             }}
-            data-fruit-id={fruit.id}
           >
             {fruit.emoji}
           </div>
         ))}
+
+        {showScorePopup && (
+          <div
+            className="absolute pointer-events-none animate-bounce text-3xl font-bold text-green-500"
+            style={{
+              left: showScorePopup.x,
+              top: showScorePopup.y - 30,
+              transform: 'translate(-50%, -50%)',
+              textShadow: '0 0 10px rgba(0, 255, 0, 0.5), 2px 2px 0 white',
+            }}
+          >
+            +{showScorePopup.value}
+          </div>
+        )}
 
         {gameState === 'menu' && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -255,7 +487,7 @@ export default function FruitSliceGame() {
               <div className="text-left bg-gray-50 rounded-2xl p-4 mb-6">
                 <p className="text-gray-700 mb-2">🎮 游戏规则：</p>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li>✓ 切水果获得 +10 分</li>
+                  <li>✓ 点击水果获得 +10 分</li>
                   <li>✗ 碰到细菌游戏结束</li>
                   <li>💡 学习知识可以复活</li>
                 </ul>
